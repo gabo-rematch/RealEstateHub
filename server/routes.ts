@@ -188,23 +188,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get unique communities for filter dropdown
-  app.get("/api/communities", async (req, res) => {
+  // Get unique filter values for dropdowns
+  app.get("/api/filter-options", async (req, res) => {
     try {
-      const result = await queryDatabase(`
-        SELECT DISTINCT jsonb_array_elements_text(data->'communities') as community
+      // Get unique kinds
+      const kindsResult = await queryDatabase(`
+        SELECT DISTINCT data->>'kind' as value
+        FROM inventory_unit_preference 
+        WHERE data->>'kind' IS NOT NULL
+        ORDER BY value
+      `);
+
+      // Get unique transaction types
+      const transactionTypesResult = await queryDatabase(`
+        SELECT DISTINCT data->>'transaction_type' as value
+        FROM inventory_unit_preference 
+        WHERE data->>'transaction_type' IS NOT NULL
+        ORDER BY value
+      `);
+
+      // Get unique property types
+      const propertyTypesResult = await queryDatabase(`
+        SELECT DISTINCT jsonb_array_elements_text(data->'property_type') as value
+        FROM inventory_unit_preference 
+        WHERE data->'property_type' IS NOT NULL 
+        AND jsonb_array_length(data->'property_type') > 0
+        ORDER BY value
+      `);
+
+      // Get unique bedroom counts
+      const bedroomsResult = await queryDatabase(`
+        SELECT DISTINCT jsonb_array_elements(data->'bedrooms')::int as value
+        FROM inventory_unit_preference 
+        WHERE data->'bedrooms' IS NOT NULL 
+        AND jsonb_array_length(data->'bedrooms') > 0
+        AND jsonb_array_elements(data->'bedrooms')::text ~ '^[0-9]+$'
+        ORDER BY value
+      `);
+
+      // Get unique communities
+      const communitiesResult = await queryDatabase(`
+        SELECT DISTINCT jsonb_array_elements_text(data->'communities') as value
         FROM inventory_unit_preference 
         WHERE data->'communities' IS NOT NULL 
         AND jsonb_array_length(data->'communities') > 0
-        ORDER BY community
-        LIMIT 100
+        ORDER BY value
+        LIMIT 200
       `);
-      
-      const communities = result.map(row => row.community).filter(Boolean);
-      res.json(communities);
+
+      const filterOptions = {
+        kinds: kindsResult.map(row => row.value).filter(Boolean),
+        transactionTypes: transactionTypesResult.map(row => row.value).filter(Boolean),
+        propertyTypes: propertyTypesResult.map(row => row.value).filter(Boolean),
+        bedrooms: bedroomsResult.map(row => row.value).filter(val => val !== null && val >= 0),
+        communities: communitiesResult.map(row => row.value).filter(Boolean)
+      };
+
+      res.json(filterOptions);
     } catch (error) {
-      console.error('Communities API error:', error);
-      res.status(500).json({ error: 'Failed to fetch communities' });
+      console.error('Filter options API error:', error);
+      res.status(500).json({ error: 'Failed to fetch filter options' });
     }
   });
 
