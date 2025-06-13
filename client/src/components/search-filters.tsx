@@ -158,6 +158,18 @@ function SearchableMultiSelect({ values, onValuesChange, options, placeholder, s
   );
 }
 
+// Helper functions for number formatting
+const formatNumberWithCommas = (value: number | string): string => {
+  const num = typeof value === 'string' ? value : value.toString();
+  return num.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+};
+
+const parseNumberFromFormatted = (value: string): number | undefined => {
+  const cleaned = value.replace(/,/g, '');
+  const num = parseInt(cleaned);
+  return isNaN(num) ? undefined : num;
+};
+
 export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isLoading }: SearchFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -274,16 +286,16 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                       </Label>
                       <div className="grid grid-cols-2 gap-2">
                         <Input
-                          type="number"
-                          placeholder="Min"
-                          value={filters.area_sqft_min || ""}
-                          onChange={(e) => updateFilter('area_sqft_min', e.target.value ? parseInt(e.target.value) : undefined)}
+                          type="text"
+                          placeholder="Min (e.g., 1,000)"
+                          value={filters.area_sqft_min ? formatNumberWithCommas(filters.area_sqft_min) : ""}
+                          onChange={(e) => updateFilter('area_sqft_min', parseNumberFromFormatted(e.target.value))}
                         />
                         <Input
-                          type="number"
-                          placeholder="Max"
-                          value={filters.area_sqft_max || ""}
-                          onChange={(e) => updateFilter('area_sqft_max', e.target.value ? parseInt(e.target.value) : undefined)}
+                          type="text"
+                          placeholder="Max (e.g., 5,000)"
+                          value={filters.area_sqft_max ? formatNumberWithCommas(filters.area_sqft_max) : ""}
+                          onChange={(e) => updateFilter('area_sqft_max', parseNumberFromFormatted(e.target.value))}
                         />
                       </div>
                     </div>
@@ -294,16 +306,16 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                       </Label>
                       <div className="grid grid-cols-2 gap-2">
                         <Input
-                          type="number"
-                          placeholder="Min price"
-                          value={filters.budget_min || ""}
-                          onChange={(e) => updateFilter('budget_min', e.target.value ? parseInt(e.target.value) : undefined)}
+                          type="text"
+                          placeholder="Min (e.g., 100,000)"
+                          value={filters.budget_min ? formatNumberWithCommas(filters.budget_min) : ""}
+                          onChange={(e) => updateFilter('budget_min', parseNumberFromFormatted(e.target.value))}
                         />
                         <Input
-                          type="number"
-                          placeholder="Max price"
-                          value={filters.budget_max || ""}
-                          onChange={(e) => updateFilter('budget_max', e.target.value ? parseInt(e.target.value) : undefined)}
+                          type="text"
+                          placeholder="Max (e.g., 2,000,000)"
+                          value={filters.budget_max ? formatNumberWithCommas(filters.budget_max) : ""}
+                          onChange={(e) => updateFilter('budget_max', parseNumberFromFormatted(e.target.value))}
                         />
                       </div>
                     </div>
