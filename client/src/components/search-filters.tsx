@@ -50,7 +50,6 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                           <SelectValue placeholder="Select unit kind" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Select unit kind</SelectItem>
                           <SelectItem value="apartment">Apartment</SelectItem>
                           <SelectItem value="villa">Villa</SelectItem>
                           <SelectItem value="townhouse">Townhouse</SelectItem>
@@ -68,7 +67,6 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                           <SelectValue placeholder="Select transaction" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Select transaction</SelectItem>
                           <SelectItem value="sale">Sale</SelectItem>
                           <SelectItem value="rent">Rent</SelectItem>
                         </SelectContent>
@@ -85,12 +83,12 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                       <Label htmlFor="property-type" className="block text-sm font-medium text-gray-700 mb-2">
                         Property Type
                       </Label>
-                      <Select value={filters.property_type || ""} onValueChange={(value) => updateFilter('property_type', value || undefined)}>
+                      <Select value={filters.property_type || "any"} onValueChange={(value) => updateFilter('property_type', value === "any" ? undefined : value)}>
                         <SelectTrigger>
                           <SelectValue placeholder="Any property type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Any property type</SelectItem>
+                          <SelectItem value="any">Any property type</SelectItem>
                           <SelectItem value="residential">Residential</SelectItem>
                           <SelectItem value="commercial">Commercial</SelectItem>
                         </SelectContent>
@@ -101,12 +99,12 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                       <Label htmlFor="beds" className="block text-sm font-medium text-gray-700 mb-2">
                         Bedrooms
                       </Label>
-                      <Select value={filters.beds || ""} onValueChange={(value) => updateFilter('beds', value || undefined)}>
+                      <Select value={filters.beds || "any"} onValueChange={(value) => updateFilter('beds', value === "any" ? undefined : value)}>
                         <SelectTrigger>
                           <SelectValue placeholder="Any bedrooms" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Any bedrooms</SelectItem>
+                          <SelectItem value="any">Any bedrooms</SelectItem>
                           <SelectItem value="studio">Studio</SelectItem>
                           <SelectItem value="1">1 Bedroom</SelectItem>
                           <SelectItem value="2">2 Bedrooms</SelectItem>
@@ -161,12 +159,12 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                       <Label htmlFor="community" className="block text-sm font-medium text-gray-700 mb-2">
                         Community
                       </Label>
-                      <Select value={filters.community || ""} onValueChange={(value) => updateFilter('community', value || undefined)}>
+                      <Select value={filters.community || "any"} onValueChange={(value) => updateFilter('community', value === "any" ? undefined : value)}>
                         <SelectTrigger>
                           <SelectValue placeholder="Any community" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Any community</SelectItem>
+                          <SelectItem value="any">Any community</SelectItem>
                           <SelectItem value="downtown">Downtown Dubai</SelectItem>
                           <SelectItem value="marina">Dubai Marina</SelectItem>
                           <SelectItem value="jbr">JBR</SelectItem>
