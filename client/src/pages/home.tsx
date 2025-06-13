@@ -89,42 +89,7 @@ export default function Home() {
     refetch(); // Trigger a new query
   };
 
-  const handleDebugTable = async () => {
-    console.log('Starting comprehensive table debug...');
-    
-    try {
-      // Test database connection and record count
-      const response = await fetch('/api/test-db');
-      const result = await response.json();
-      
-      console.log('Database test result:', result);
-      
-      if (result.success) {
-        console.log(`Database accessible with ${result.recordCount} total records`);
-        
-        // Test basic property query
-        const propertiesResponse = await fetch('/api/properties?page=0&pageSize=5');
-        const properties = await propertiesResponse.json();
-        
-        console.log(`Sample query returned ${properties.length} properties`);
-        if (properties.length > 0) {
-          console.log('Sample property:', properties[0]);
-        }
-      }
-      
-      toast({
-        title: "Debug Complete",
-        description: `Database has ${result.recordCount} records. Check browser console for details.`,
-      });
-    } catch (error) {
-      console.error('Debug error:', error);
-      toast({
-        title: "Debug Failed",
-        description: "Check browser console for error details",
-        variant: "destructive",
-      });
-    }
-  };
+  
 
   const handlePropertySelection = (propertyId: string, selected: boolean) => {
     if (selected) {
@@ -210,13 +175,6 @@ export default function Home() {
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 New Search
-              </Button>
-              <Button
-                onClick={handleDebugTable}
-                variant="outline"
-                size="sm"
-              >
-                Debug DB
               </Button>
             </div>
           </div>

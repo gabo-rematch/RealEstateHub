@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,18 @@ interface SearchFiltersProps {
 
 export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isLoading }: SearchFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
+
+  // Fetch dynamic filter options from the database
+  const { data: filterOptions = {} } = useQuery({
+    queryKey: ['filter-options'],
+    queryFn: async () => {
+      const response = await fetch('/api/filter-options');
+      if (!response.ok) {
+        throw new Error('Failed to fetch filter options');
+      }
+      return response.json();
+    },
+  });
 
   const updateFilter = (key: keyof SearchFilters, value: any) => {
     onFiltersChange({ ...filters, [key]: value });
@@ -50,8 +63,11 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                           <SelectValue placeholder="Select kind" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="listing">Listing</SelectItem>
-                          <SelectItem value="client_request">Client Request</SelectItem>
+                          {filterOptions.kinds?.map((kind: string) => (
+                            <SelectItem key={kind} value={kind}>
+                              {kind.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -65,8 +81,11 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                           <SelectValue placeholder="Select transaction" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="sale">Sale</SelectItem>
-                          <SelectItem value="rent">Rent</SelectItem>
+                          {filterOptions.transactionTypes?.map((type: string) => (
+                            <SelectItem key={type} value={type}>
+                              {type.charAt(0).toUpperCase() + type.slice(1)}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -87,13 +106,11 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="any">Any property type</SelectItem>
-                          <SelectItem value="apartment">Apartment</SelectItem>
-                          <SelectItem value="land">Land</SelectItem>
-                          <SelectItem value="office">Office</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                          <SelectItem value="retail">Retail</SelectItem>
-                          <SelectItem value="townhouse">Townhouse</SelectItem>
-                          <SelectItem value="villa">Villa</SelectItem>
+                          {filterOptions.property_types?.map((type: string) => (
+                            <SelectItem key={type} value={type}>
+                              {type.charAt(0).toUpperCase() + type.slice(1)}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -108,12 +125,13 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="any">Any bedrooms</SelectItem>
-                          <SelectItem value="studio">Studio</SelectItem>
-                          <SelectItem value="1">1 Bedroom</SelectItem>
-                          <SelectItem value="2">2 Bedrooms</SelectItem>
-                          <SelectItem value="3">3 Bedrooms</SelectItem>
-                          <SelectItem value="4">4 Bedrooms</SelectItem>
-                          <SelectItem value="5+">5+ Bedrooms</SelectItem>
+                          {filterOptions.bedrooms?.map((bedroom: string) => (
+                            <SelectItem key={bedroom} value={bedroom}>
+                              {bedroom === "studio" ? "Studio" : 
+                               bedroom.includes("+") ? `${bedroom} Bedrooms` : 
+                               `${bedroom} Bedroom${bedroom !== "1" ? "s" : ""}`}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -168,11 +186,11 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="any">Any community</SelectItem>
-                          <SelectItem value="downtown">Downtown Dubai</SelectItem>
-                          <SelectItem value="marina">Dubai Marina</SelectItem>
-                          <SelectItem value="jbr">JBR</SelectItem>
-                          <SelectItem value="business-bay">Business Bay</SelectItem>
-                          <SelectItem value="palm">Palm Jumeirah</SelectItem>
+                          {filterOptions.communities?.map((community: string) => (
+                            <SelectItem key={community} value={community}>
+                              {community}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
