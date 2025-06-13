@@ -31,33 +31,6 @@ export default function Home() {
   const { data: properties = [], isLoading, error, refetch } = useQuery({
     queryKey: ['properties', filters, currentPage],
     queryFn: async () => {
-      // Use dummy data when Supabase credentials are not available
-      if (isDummyMode) {
-        // Simulate loading delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        const filteredProperties = filterDummyProperties(filters);
-        
-        // Deduplicate identical units based on key properties
-        const uniqueProperties = filteredProperties.reduce((acc: Property[], current: Property) => {
-          const isDuplicate = acc.some(prop => 
-            prop.message_body_raw === current.message_body_raw &&
-            prop.kind === current.kind &&
-            prop.communities?.[0] === current.communities?.[0] &&
-            prop.bedrooms?.[0] === current.bedrooms?.[0] &&
-            prop.area_sqft === current.area_sqft
-          );
-          
-          if (!isDuplicate) {
-            acc.push(current);
-          }
-          
-          return acc;
-        }, []);
-
-        return uniqueProperties;
-      }
-
       // Use real Supabase data with pagination
       const data = await querySupabaseProperties(filters, currentPage, 50);
       
@@ -85,6 +58,7 @@ export default function Home() {
 
   const handleSearch = () => {
     setCurrentPage(0); // Reset to first page when searching
+    setHasSearched(true); // Mark that a search has been performed
     refetch(); // Trigger a new query
   };
 
@@ -183,7 +157,6 @@ export default function Home() {
                 <h1 className="text-lg font-semibold text-gray-900">UAE Property Portal</h1>
                 <p className="text-xs text-gray-500">
                   Real Estate Agent Dashboard
-                  {isDummyMode && <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs font-medium">Demo Mode</span>}
                 </p>
               </div>
             </div>
@@ -196,15 +169,13 @@ export default function Home() {
                 <RotateCcw className="w-4 h-4 mr-2" />
                 New Search
               </Button>
-              {!isDummyMode && (
-                <Button
-                  onClick={handleDebugTable}
-                  variant="outline"
-                  size="sm"
-                >
-                  Debug DB
-                </Button>
-              )}
+              <Button
+                onClick={handleDebugTable}
+                variant="outline"
+                size="sm"
+              >
+                Debug DB
+              </Button>
             </div>
           </div>
         </div>
@@ -268,29 +239,16 @@ export default function Home() {
                   </div>
                 ) : properties.length > 0 ? (
                   <div className="space-y-4">
-                    {isDummyMode ? (
-                      properties.map((property: Property) => (
-                        <PropertyCard
-                          key={property.id}
-                          property={property}
-                          isSelected={selectedPropertyIds.includes(property.id?.toString() || '')}
-                          onSelectionChange={(selected) => 
-                            handlePropertySelection(property.id?.toString() || String(property.pk), selected)
-                          }
-                        />
-                      ))
-                    ) : (
-                      (properties as SupabaseProperty[]).map((property: SupabaseProperty) => (
-                        <SupabasePropertyCard
-                          key={property.id || property.pk}
-                          property={property}
-                          isSelected={selectedPropertyIds.includes(property.id || String(property.pk))}
-                          onSelectionChange={(selected) => 
-                            handlePropertySelection(property.id || String(property.pk), selected)
-                          }
-                        />
-                      ))
-                    )}
+                    {(properties as SupabaseProperty[]).map((property: SupabaseProperty) => (
+                      <SupabasePropertyCard
+                        key={property.id || property.pk}
+                        property={property}
+                        isSelected={selectedPropertyIds.includes(property.id || String(property.pk))}
+                        onSelectionChange={(selected) => 
+                          handlePropertySelection(property.id || String(property.pk), selected)
+                        }
+                      />
+                    ))}
                     
                     {/* Pagination Controls */}
                     {properties.length > 0 && (
@@ -324,13 +282,18 @@ export default function Home() {
                     <div className="w-16 h-16 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
                       <Search className="h-8 w-8 text-gray-400" />
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No properties found</h3>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No properties available</h3>
                     <p className="text-gray-500 mb-6">
-                      Try adjusting your search filters to see more results.
+                      {hasSearched ? 
+                        "No properties match your current search criteria. Try adjusting your filters." :
+                        "The property database is currently empty. Properties will appear here once data is added to the system."
+                      }
                     </p>
-                    <Button onClick={handleNewSearch} variant="outline">
-                      Clear All Filters
-                    </Button>
+                    {hasSearched && (
+                      <Button onClick={handleNewSearch} variant="outline">
+                        Clear All Filters
+                      </Button>
+                    )}
                   </div>
                 )}
               </>
