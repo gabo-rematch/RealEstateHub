@@ -11,7 +11,7 @@ import { SearchFilters } from "@/types/property";
 import { Property } from "@shared/schema";
 import { supabase, isDummyMode } from "@/lib/supabase";
 import { filterDummyProperties } from "@/lib/dummyData";
-import { querySupabasePropertiesDirect, SupabaseProperty } from "@/lib/supabaseQuery";
+import { querySupabaseProperties, SupabaseProperty } from "@/lib/supabaseQuery";
 import { Building, RotateCcw, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -24,16 +24,13 @@ export default function Home() {
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
   const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
   const [sortBy, setSortBy] = useState("updated_at_desc");
 
   // Fetch properties based on filters
   const { data: properties = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['properties', filters, hasSearched],
+    queryKey: ['properties', filters, currentPage],
     queryFn: async () => {
-      if (!hasSearched || !filters.unit_kind || !filters.transaction_type) {
-        return [];
-      }
-
       // Use dummy data when Supabase credentials are not available
       if (isDummyMode) {
         // Simulate loading delay
@@ -61,8 +58,8 @@ export default function Home() {
         return uniqueProperties;
       }
 
-      // Use real Supabase data
-      const data = await querySupabasePropertiesDirect(filters);
+      // Use real Supabase data with pagination
+      const data = await querySupabaseProperties(filters, currentPage, 50);
       
       // Deduplicate identical units based on key properties
       const uniqueProperties = data.reduce((acc: SupabaseProperty[], current: SupabaseProperty) => {
@@ -83,19 +80,12 @@ export default function Home() {
 
       return uniqueProperties;
     },
-    enabled: hasSearched && !!filters.unit_kind && !!filters.transaction_type,
+    enabled: true, // Always enabled, will return all data when no filters
   });
 
   const handleSearch = () => {
-    if (!filters.unit_kind || !filters.transaction_type) {
-      toast({
-        title: "Missing required filters",
-        description: "Please select both Unit Kind and Transaction Type.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setHasSearched(true);
+    setCurrentPage(0); // Reset to first page when searching
+    refetch(); // Trigger a new query
   };
 
   const handlePropertySelection = (propertyId: string, selected: boolean) => {
@@ -267,6 +257,33 @@ export default function Home() {
                           }
                         />
                       ))
+                    )}
+                    
+                    {/* Pagination Controls */}
+                    {properties.length > 0 && (
+                      <div className="flex justify-center items-center space-x-4 mt-8 pt-6 border-t">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setCurrentPage(prev => Math.max(0, prev - 1));
+                          }}
+                          disabled={currentPage === 0}
+                        >
+                          Previous
+                        </Button>
+                        <span className="text-sm text-gray-600">
+                          Page {currentPage + 1}
+                        </span>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setCurrentPage(prev => prev + 1);
+                          }}
+                          disabled={properties.length < 50}
+                        >
+                          Next
+                        </Button>
+                      </div>
                     )}
                   </div>
                 ) : (
