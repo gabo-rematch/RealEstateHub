@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchFilters } from "@/types/property";
 import { Property } from "@shared/schema";
-import { supabase } from "@/lib/supabase";
+import { supabase, isDummyMode } from "@/lib/supabase";
+import { filterDummyProperties } from "@/lib/dummyData";
 import { Building, RotateCcw, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -31,7 +32,35 @@ export default function Home() {
         return [];
       }
 
-      let query = supabase
+      // Use dummy data when Supabase credentials are not available
+      if (isDummyMode) {
+        // Simulate loading delay
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        const filteredProperties = filterDummyProperties(filters);
+        
+        // Deduplicate identical units based on key properties
+        const uniqueProperties = filteredProperties.reduce((acc: Property[], current: Property) => {
+          const isDuplicate = acc.some(prop => 
+            prop.title === current.title &&
+            prop.unit_kind === current.unit_kind &&
+            prop.community === current.community &&
+            prop.beds === current.beds &&
+            prop.area_sqft === current.area_sqft
+          );
+          
+          if (!isDuplicate) {
+            acc.push(current);
+          }
+          
+          return acc;
+        }, []);
+
+        return uniqueProperties;
+      }
+
+      // Use Supabase when credentials are available
+      let query = supabase!
         .from('properties')
         .select('*')
         .eq('unit_kind', filters.unit_kind)
@@ -181,7 +210,10 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-lg font-semibold text-gray-900">UAE Property Portal</h1>
-                <p className="text-xs text-gray-500">Real Estate Agent Dashboard</p>
+                <p className="text-xs text-gray-500">
+                  Real Estate Agent Dashboard
+                  {isDummyMode && <span className="ml-2 px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs font-medium">Demo Mode</span>}
+                </p>
               </div>
             </div>
             <Button
@@ -254,7 +286,7 @@ export default function Home() {
                   </div>
                 ) : properties.length > 0 ? (
                   <div className="space-y-4">
-                    {properties.map((property) => (
+                    {properties.map((property: Property) => (
                       <PropertyCard
                         key={property.id}
                         property={property}

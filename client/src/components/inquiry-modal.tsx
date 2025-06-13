@@ -77,22 +77,26 @@ export function InquiryModal({ isOpen, onClose, selectedPropertyIds, searchFilte
         timestamp: new Date().toISOString(),
       };
 
-      // Send to webhook
+      // Send to webhook or simulate in demo mode
       const webhookUrl = import.meta.env.VITE_WEBHOOK_URL;
+      
       if (!webhookUrl) {
-        throw new Error('Webhook URL not configured');
-      }
+        // Demo mode - simulate webhook submission
+        console.log('Demo mode: Inquiry payload:', payload);
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
+      } else {
+        // Production mode - send to actual webhook
+        const response = await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
 
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
       }
 
       toast({
