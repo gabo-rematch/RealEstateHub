@@ -7,10 +7,7 @@ import { FloatingActionButton } from "@/components/floating-action-button";
 import { InquiryModal } from "@/components/inquiry-modal";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SearchFilters } from "@/types/property";
-import { supabase, isDummyMode } from "@/lib/supabase";
-
-import { SupabaseProperty } from "@/lib/supabaseQuery";
+import { SearchFilters, SupabaseProperty } from "@/types/property";
 import { Building, RotateCcw, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -22,7 +19,7 @@ export default function Home() {
   });
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
   const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [hasSearched, setHasSearched] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [sortBy, setSortBy] = useState("updated_at_desc");
 
@@ -345,9 +342,9 @@ export default function Home() {
                 <div className="w-16 h-16 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
                   <Search className="h-8 w-8 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Ready to search properties?</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Loading properties...</h3>
                 <p className="text-gray-500 mb-6">
-                  Set your search criteria and click "Search Properties" to find available units.
+                  Fetching available properties from the database.
                 </p>
               </div>
             )}
