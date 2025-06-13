@@ -225,22 +225,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ORDER BY value
       `);
 
-      // Get unique communities (check both string and array formats)
+      // Get unique communities from arrays
       const communitiesResult = await queryDatabase(`
-        SELECT DISTINCT 
-          CASE 
-            WHEN jsonb_typeof(data->'communities') = 'array' THEN 
-              jsonb_array_elements_text(data->'communities')
-            WHEN jsonb_typeof(data->'communities') = 'string' THEN 
-              data->>'communities'
-            ELSE NULL
-          END as value
+        SELECT DISTINCT jsonb_array_elements_text(data->'communities') as value
         FROM inventory_unit_preference 
         WHERE data->'communities' IS NOT NULL 
-        AND (
-          (jsonb_typeof(data->'communities') = 'array' AND jsonb_array_length(data->'communities') > 0) OR
-          (jsonb_typeof(data->'communities') = 'string' AND data->>'communities' != '')
-        )
+        AND jsonb_array_length(data->'communities') > 0
         ORDER BY value
         LIMIT 200
       `);
