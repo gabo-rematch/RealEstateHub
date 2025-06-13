@@ -5,7 +5,7 @@ export const dummyProperties: Property[] = [
   {
     id: 1,
     title: "Luxury 2BR Apartment in Downtown Dubai",
-    unit_kind: "apartment",
+    unit_kind: "listing",
     transaction_type: "sale",
     property_type: "residential",
     beds: "2",
@@ -24,7 +24,7 @@ export const dummyProperties: Property[] = [
   {
     id: 2,
     title: "Modern 1BR in Dubai Marina",
-    unit_kind: "apartment",
+    unit_kind: "client_request",
     transaction_type: "rent",
     property_type: "residential",
     beds: "1",
@@ -43,7 +43,7 @@ export const dummyProperties: Property[] = [
   {
     id: 3,
     title: "Spacious 4BR Villa in Palm Jumeirah",
-    unit_kind: "villa",
+    unit_kind: "listing",
     transaction_type: "sale",
     property_type: "residential",
     beds: "4",
@@ -62,7 +62,7 @@ export const dummyProperties: Property[] = [
   {
     id: 4,
     title: "Studio Apartment in Business Bay",
-    unit_kind: "apartment",
+    unit_kind: "client_request",
     transaction_type: "rent",
     property_type: "residential",
     beds: "studio",
@@ -81,7 +81,7 @@ export const dummyProperties: Property[] = [
   {
     id: 5,
     title: "Penthouse 3BR in JBR with Sea View",
-    unit_kind: "penthouse",
+    unit_kind: "listing",
     transaction_type: "sale",
     property_type: "residential",
     beds: "3",
@@ -100,7 +100,7 @@ export const dummyProperties: Property[] = [
   {
     id: 6,
     title: "Off-Plan 2BR Townhouse in New Development",
-    unit_kind: "townhouse",
+    unit_kind: "client_request",
     transaction_type: "sale",
     property_type: "residential",
     beds: "2",
@@ -119,7 +119,7 @@ export const dummyProperties: Property[] = [
   {
     id: 7,
     title: "Distressed Sale: 1BR in Business Bay",
-    unit_kind: "apartment",
+    unit_kind: "listing",
     transaction_type: "sale",
     property_type: "residential",
     beds: "1",

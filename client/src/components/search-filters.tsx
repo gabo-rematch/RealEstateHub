@@ -43,17 +43,15 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                   <div className="space-y-4">
                     <div>
                       <Label htmlFor="unit-kind" className="block text-sm font-medium text-gray-700 mb-2">
-                        Unit Kind
+                        Kind
                       </Label>
                       <Select value={filters.unit_kind} onValueChange={(value) => updateFilter('unit_kind', value)}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select unit kind" />
+                          <SelectValue placeholder="Select kind" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="apartment">Apartment</SelectItem>
-                          <SelectItem value="villa">Villa</SelectItem>
-                          <SelectItem value="townhouse">Townhouse</SelectItem>
-                          <SelectItem value="penthouse">Penthouse</SelectItem>
+                          <SelectItem value="listing">Listing</SelectItem>
+                          <SelectItem value="client_request">Client Request</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
