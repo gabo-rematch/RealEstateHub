@@ -64,51 +64,73 @@ export async function querySupabaseProperties(filters: SearchFilters): Promise<S
   return data || [];
 }
 
-// Fallback to direct table query if RPC function doesn't exist
+// Direct table query for inventory_unit_preference
 export async function querySupabasePropertiesDirect(filters: SearchFilters): Promise<any[]> {
   if (!supabase) {
-    throw new Error('Supabase not initialized');
+    console.error('Supabase client not initialized');
+    throw new Error('Database connection not available');
   }
 
+  console.log('Querying with filters:', filters);
+
+  // Start with a simple test query to verify table access
+  try {
+    const testQuery = await supabase
+      .from('inventory_unit_preference')
+      .select('pk, id, data')
+      .limit(5);
+    
+    console.log('Test query result:', testQuery);
+    
+    if (testQuery.error) {
+      console.error('Test query failed:', testQuery.error);
+      throw new Error(`Database access error: ${testQuery.error.message}`);
+    }
+
+    console.log(`Found ${testQuery.data?.length || 0} test records`);
+  } catch (error) {
+    console.error('Database connection test failed:', error);
+    throw error;
+  }
+
+  // Build main query with filters
   let query = supabase
     .from('inventory_unit_preference')
-    .select(`
-      pk,
-      id,
-      data,
-      updated_at,
-      inventory_unit!inner(
-        agent_details
-      )
-    `);
+    .select('pk, id, data, updated_at');
 
-  // Apply basic filters that we can handle directly
-  if (filters.unit_kind) {
-    query = query.contains('data', { kind: filters.unit_kind });
+  // Apply filters using JSONB operators
+  if (filters.unit_kind && filters.unit_kind !== '') {
+    // Map frontend terms to database values
+    const kindValue = filters.unit_kind === 'listing' ? 'listing' : 
+                     filters.unit_kind === 'client_request' ? 'client_request' : 
+                     filters.unit_kind;
+    query = query.eq('data->>kind', kindValue);
   }
   
-  if (filters.transaction_type) {
-    query = query.contains('data', { transaction_type: filters.transaction_type });
+  if (filters.transaction_type && filters.transaction_type !== '') {
+    query = query.eq('data->>transaction_type', filters.transaction_type);
   }
 
-  // Order by updated_at descending
-  query = query.order('updated_at', { ascending: false });
+  // Add limit to prevent timeout
+  query = query.limit(100).order('updated_at', { ascending: false });
 
+  console.log('Executing main query...');
   const { data, error } = await query;
 
   if (error) {
-    console.error('Supabase direct query error:', error);
-    throw new Error(error.message);
+    console.error('Main query error:', error);
+    throw new Error(`Query failed: ${error.message}`);
   }
 
+  console.log(`Query returned ${data?.length || 0} records`);
+
   // Transform the data to match our expected format
-  return (data || []).map((item: any) => {
+  const transformedData = (data || []).map((item: any) => {
     const rec = item.data || {};
-    const agentDetails = item.inventory_unit?.agent_details || {};
     
     return {
       pk: item.pk,
-      id: item.id,
+      id: item.id || String(item.pk),
       kind: rec.kind,
       transaction_type: rec.transaction_type,
       bedrooms: Array.isArray(rec.bedrooms) ? rec.bedrooms : (rec.bedrooms ? [rec.bedrooms] : []),
@@ -135,11 +157,14 @@ export async function querySupabasePropertiesDirect(filters: SearchFilters): Pro
       is_mortgage_approved: rec.is_mortgage_approved,
       is_community_agnostic: rec.is_community_agnostic,
       developers: Array.isArray(rec.developers) ? rec.developers : (rec.developers ? [rec.developers] : []),
-      whatsapp_participant: agentDetails.whatsapp_participant,
-      agent_phone: agentDetails.agent_phone,
-      groupJID: agentDetails.whatsapp_remote_jid,
-      evolution_instance_id: agentDetails.evolution_instance_id,
+      whatsapp_participant: null,
+      agent_phone: null,
+      groupJID: null,
+      evolution_instance_id: null,
       updated_at: item.updated_at
     };
   });
+
+  console.log('Sample transformed record:', transformedData[0]);
+  return transformedData;
 }
