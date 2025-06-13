@@ -73,23 +73,54 @@ export async function querySupabasePropertiesDirect(filters: SearchFilters): Pro
 
   console.log('Querying with filters:', filters);
 
-  // Start with a simple test query to verify table access
+  // Start with comprehensive table investigation
   try {
-    const testQuery = await supabase
+    // First, try to get the table schema/structure
+    console.log('Investigating table structure...');
+    
+    // Get a sample of ALL records to see what's actually in the table
+    const allRecordsQuery = await supabase
       .from('inventory_unit_preference')
-      .select('pk, id, data')
-      .limit(5);
+      .select('*')
+      .limit(10);
     
-    console.log('Test query result:', testQuery);
+    console.log('All records query result:', allRecordsQuery);
+    console.log(`Total records found: ${allRecordsQuery.data?.length || 0}`);
     
-    if (testQuery.error) {
-      console.error('Test query failed:', testQuery.error);
-      throw new Error(`Database access error: ${testQuery.error.message}`);
+    if (allRecordsQuery.data && allRecordsQuery.data.length > 0) {
+      console.log('Sample record structure:', allRecordsQuery.data[0]);
+      console.log('Sample data field content:', allRecordsQuery.data[0]?.data);
+      
+      // Analyze the data field structure
+      const sampleData = allRecordsQuery.data[0]?.data;
+      if (sampleData) {
+        console.log('Data field keys:', Object.keys(sampleData));
+        console.log('Kind value:', sampleData.kind || sampleData.rec_kind);
+        console.log('Transaction type:', sampleData.transaction_type || sampleData.rec_transaction_type);
+      }
+    } else {
+      // Table might be empty, let's check if it exists at all
+      console.log('No records found. Checking if table exists...');
+      
+      // Try a different approach - check other possible table names
+      const altQuery1 = await supabase
+        .from('inventory_unit')
+        .select('*')
+        .limit(5);
+      console.log('inventory_unit table query:', altQuery1);
+      
+      if (altQuery1.error?.code === '42P01') {
+        console.log('Table does not exist or access denied');
+      }
+    }
+    
+    if (allRecordsQuery.error) {
+      console.error('Table access error:', allRecordsQuery.error);
+      throw new Error(`Database access error: ${allRecordsQuery.error.message}`);
     }
 
-    console.log(`Found ${testQuery.data?.length || 0} test records`);
   } catch (error) {
-    console.error('Database connection test failed:', error);
+    console.error('Database investigation failed:', error);
     throw error;
   }
 
