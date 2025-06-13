@@ -128,25 +128,25 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
                 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
                   {getBedroomsDisplay() && (
-                    <div className="flex items-center">
+                    <div key="bedrooms" className="flex items-center">
                       <Bed className="h-4 w-4 text-gray-400 mr-2" />
                       <span>{getBedroomsDisplay()}</span>
                     </div>
                   )}
                   {getBathroomsDisplay() && (
-                    <div className="flex items-center">
+                    <div key="bathrooms" className="flex items-center">
                       <Bath className="h-4 w-4 text-gray-400 mr-2" />
                       <span>{getBathroomsDisplay()}</span>
                     </div>
                   )}
                   {property.area_sqft && (
-                    <div className="flex items-center">
+                    <div key="area" className="flex items-center">
                       <Square className="h-4 w-4 text-gray-400 mr-2" />
                       <span>{property.area_sqft.toLocaleString()} sq ft</span>
                     </div>
                   )}
                   {getCommunityDisplay() && (
-                    <div className="flex items-center">
+                    <div key="community" className="flex items-center">
                       <MapPin className="h-4 w-4 text-gray-400 mr-2" />
                       <span>{getCommunityDisplay()}</span>
                     </div>

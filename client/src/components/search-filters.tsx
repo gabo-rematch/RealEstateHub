@@ -135,18 +135,14 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                       <Label htmlFor="transaction-type" className="block text-sm font-medium text-gray-700 mb-2">
                         Transaction Type
                       </Label>
-                      <Select value={filters.transaction_type} onValueChange={(value) => updateFilter('transaction_type', value)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select transaction" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {filterOptions.transactionTypes?.map((type: string) => (
-                            <SelectItem key={type} value={type}>
-                              {type.charAt(0).toUpperCase() + type.slice(1)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={filters.transaction_type || ""}
+                        onValueChange={(value) => updateFilter('transaction_type', value)}
+                        options={filterOptions.transactionTypes || []}
+                        placeholder="Search and select transaction type..."
+                        searchPlaceholder="Search transaction types..."
+                        emptyText="No transaction types found."
+                      />
                     </div>
                   </div>
                 </div>

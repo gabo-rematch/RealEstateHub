@@ -239,9 +239,9 @@ export default function Home() {
                   </div>
                 ) : properties && properties.length > 0 ? (
                   <div className="space-y-4">
-                    {(properties as SupabaseProperty[]).map((property: SupabaseProperty) => (
+                    {(properties as SupabaseProperty[]).map((property: SupabaseProperty, index: number) => (
                       <SupabasePropertyCard
-                        key={property.id || property.pk}
+                        key={`${property.pk}-${property.id || index}`}
                         property={property}
                         isSelected={selectedPropertyIds.includes(property.id || String(property.pk))}
                         onSelectionChange={(selected) => 
