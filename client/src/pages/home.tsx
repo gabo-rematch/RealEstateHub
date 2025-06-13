@@ -11,7 +11,7 @@ import { SearchFilters } from "@/types/property";
 import { Property } from "@shared/schema";
 import { supabase, isDummyMode } from "@/lib/supabase";
 import { filterDummyProperties } from "@/lib/dummyData";
-import { querySupabaseProperties, SupabaseProperty } from "@/lib/supabaseQuery";
+import { querySupabaseProperties, testTableAccess, getSampleRecords, SupabaseProperty } from "@/lib/supabaseQuery";
 import { Building, RotateCcw, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -86,6 +86,17 @@ export default function Home() {
   const handleSearch = () => {
     setCurrentPage(0); // Reset to first page when searching
     refetch(); // Trigger a new query
+  };
+
+  const handleDebugTable = async () => {
+    console.log('Starting table access debug...');
+    const hasAccess = await testTableAccess();
+    console.log('Table access result:', hasAccess);
+    
+    if (hasAccess) {
+      const samples = await getSampleRecords();
+      console.log('Sample records retrieved:', samples.length);
+    }
   };
 
   const handlePropertySelection = (propertyId: string, selected: boolean) => {
