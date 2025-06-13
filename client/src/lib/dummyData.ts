@@ -138,7 +138,7 @@ export const dummyProperties: Property[] = [
   {
     id: 8,
     title: "Commercial Office Space in DIFC",
-    unit_kind: "apartment",
+    unit_kind: "client_request",
     transaction_type: "rent",
     property_type: "commercial",
     beds: null,
@@ -157,7 +157,7 @@ export const dummyProperties: Property[] = [
   {
     id: 9,
     title: "5+ Bedroom Villa in Emirates Hills",
-    unit_kind: "villa",
+    unit_kind: "listing",
     transaction_type: "sale",
     property_type: "residential",
     beds: "5+",
@@ -176,7 +176,7 @@ export const dummyProperties: Property[] = [
   {
     id: 10,
     title: "Affordable 3BR Apartment for Rent",
-    unit_kind: "apartment",
+    unit_kind: "client_request",
     transaction_type: "rent",
     property_type: "residential",
     beds: "3",

@@ -56,7 +56,7 @@ export function PropertyCard({ property, isSelected, onSelectionChange }: Proper
                     {property.transaction_type.charAt(0).toUpperCase() + property.transaction_type.slice(1)}
                   </Badge>
                   <Badge variant="secondary">
-                    {property.unit_kind.charAt(0).toUpperCase() + property.unit_kind.slice(1)}
+                    {property.unit_kind === 'client_request' ? 'Client Request' : 'Listing'}
                   </Badge>
                   {property.off_plan && (
                     <Badge className="bg-orange-100 text-orange-800">
