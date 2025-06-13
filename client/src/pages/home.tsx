@@ -76,21 +76,12 @@ export default function Home() {
         return acc;
       }, []);
 
-      console.log('Frontend received properties:', uniqueProperties.length);
-      console.log('Sample property:', uniqueProperties[0]);
       return uniqueProperties;
     },
     enabled: true,
   });
 
-  // Debug logging
-  console.log('Component state:', { 
-    propertiesLength: properties?.length || 0, 
-    propertiesData: properties,
-    isLoading, 
-    hasSearched, 
-    error: error?.message 
-  });
+
 
   const handleSearch = () => {
     setCurrentPage(0); // Reset to first page when searching
@@ -288,7 +279,7 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
-                ) : data && data.length > 0 ? (
+                ) : properties && properties.length > 0 ? (
                   <div className="space-y-4">
                     {(properties as SupabaseProperty[]).map((property: SupabaseProperty) => (
                       <SupabasePropertyCard
