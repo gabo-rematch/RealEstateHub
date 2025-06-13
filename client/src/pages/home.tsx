@@ -11,7 +11,7 @@ import { SearchFilters } from "@/types/property";
 import { Property } from "@shared/schema";
 import { supabase, isDummyMode } from "@/lib/supabase";
 import { filterDummyProperties } from "@/lib/dummyData";
-import { querySupabaseProperties, testTableAccess, getSampleRecords, SupabaseProperty } from "@/lib/supabaseQuery";
+import { querySupabaseProperties, testTableAccess, getSampleRecords, debugQueryApproaches, SupabaseProperty } from "@/lib/supabaseQuery";
 import { Building, RotateCcw, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -89,14 +89,25 @@ export default function Home() {
   };
 
   const handleDebugTable = async () => {
-    console.log('Starting table access debug...');
+    console.log('Starting comprehensive table debug...');
+    
+    // Test 1: Basic table access
     const hasAccess = await testTableAccess();
     console.log('Table access result:', hasAccess);
     
+    // Test 2: Sample records
     if (hasAccess) {
       const samples = await getSampleRecords();
       console.log('Sample records retrieved:', samples.length);
     }
+    
+    // Test 3: Different query approaches
+    await debugQueryApproaches();
+    
+    toast({
+      title: "Debug Complete",
+      description: "Check browser console for detailed logs",
+    });
   };
 
   const handlePropertySelection = (propertyId: string, selected: boolean) => {
@@ -176,14 +187,25 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            <Button
-              onClick={handleNewSearch}
-              variant="outline"
-              size="sm"
-            >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              New Search
-            </Button>
+            <div className="flex space-x-2">
+              <Button
+                onClick={handleNewSearch}
+                variant="outline"
+                size="sm"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                New Search
+              </Button>
+              {!isDummyMode && (
+                <Button
+                  onClick={handleDebugTable}
+                  variant="outline"
+                  size="sm"
+                >
+                  Debug DB
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </header>

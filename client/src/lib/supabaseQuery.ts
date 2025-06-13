@@ -37,12 +37,34 @@ export interface SupabaseProperty {
 
 export async function querySupabaseProperties(filters: SearchFilters, page: number = 0, pageSize: number = 50): Promise<SupabaseProperty[]> {
   if (!supabase) {
-    console.log('Supabase not configured, returning empty array');
+    console.error('Supabase client not initialized');
     return [];
   }
 
   try {
-    console.log('Querying inventory_unit_preference table, filters:', filters, 'page:', page);
+    console.log('=== SUPABASE QUERY DEBUG ===');
+    console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+    console.log('Supabase client status:', !!supabase);
+    console.log('Query filters:', JSON.stringify(filters, null, 2));
+    console.log('Pagination:', { page, pageSize });
+
+    // Test basic connectivity first
+    console.log('Testing basic Supabase connectivity...');
+    const connectTest = await supabase.from('inventory_unit_preference').select('count', { count: 'exact', head: true });
+    console.log('Connection test result:', { error: connectTest.error, count: connectTest.count });
+
+    if (connectTest.error) {
+      console.error('Connection test failed:', connectTest.error);
+      console.error('Error details:', {
+        message: connectTest.error.message,
+        details: connectTest.error.details,
+        hint: connectTest.error.hint,
+        code: connectTest.error.code
+      });
+      return [];
+    }
+
+    console.log(`Table accessible with ${connectTest.count || 0} total records`);
 
     // Build query using the exact structure from the provided SQL
     let query = supabase
@@ -54,6 +76,8 @@ export async function querySupabaseProperties(filters: SearchFilters, page: numb
         updated_at,
         inventory_unit_pk
       `);
+
+    console.log('Initial query built');
 
     // Check if any filters are applied
     const hasFilters = (
@@ -73,8 +97,14 @@ export async function querySupabaseProperties(filters: SearchFilters, page: numb
 
     console.log('Has filters:', hasFilters);
 
-    // Always add basic sanity checks for valid data structure
-    query = query.not('data', 'is', null);
+    // Start with minimal constraints to test data access
+    if (connectTest.count === 0) {
+      console.log('No records in table, testing without any constraints...');
+      // Don't add any constraints if table is empty
+    } else {
+      console.log('Adding basic data validation...');
+      query = query.not('data', 'is', null);
+    }
 
     // Apply filters only if they are specified
     if (hasFilters) {
@@ -163,23 +193,46 @@ export async function querySupabaseProperties(filters: SearchFilters, page: numb
 
     // Apply pagination
     const offset = page * pageSize;
+    console.log(`Applying pagination: page ${page}, pageSize ${pageSize}, offset ${offset}`);
+    
     query = query
       .order('updated_at', { ascending: false })
       .range(offset, offset + pageSize - 1);
 
-    console.log(`Executing query with pagination: page ${page}, pageSize ${pageSize}, offset ${offset}`);
+    console.log('Final query before execution');
+    console.log('Executing query...');
+    
     const { data, error } = await query;
 
+    console.log('Query execution complete');
+    console.log('Error:', error);
+    console.log('Data length:', data?.length || 0);
+
     if (error) {
-      console.error('Query error:', error);
+      console.error('=== QUERY ERROR ===');
+      console.error('Error object:', error);
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
+      console.error('Error details:', error.details);
+      console.error('Error hint:', error.hint);
       return [];
     }
 
     console.log(`Query returned ${data?.length || 0} records`);
     
     if (data && data.length > 0) {
-      console.log('First result sample:', data[0]);
-      console.log('First result JSONB data:', data[0].data);
+      console.log('=== SAMPLE RESULT ===');
+      console.log('First result:', JSON.stringify(data[0], null, 2));
+      if (data[0].data) {
+        console.log('JSONB data structure:', JSON.stringify(data[0].data, null, 2));
+      }
+    } else {
+      console.log('=== NO DATA RETURNED ===');
+      console.log('Possible issues:');
+      console.log('1. Table permissions (RLS policies)');
+      console.log('2. No data matches current filters');
+      console.log('3. JSONB data structure constraints');
+      console.log('4. Database connectivity issues');
     }
 
     // Transform the JSONB data to our expected format
@@ -283,21 +336,100 @@ export async function getSampleRecords(): Promise<any[]> {
   }
 
   try {
-    const { data, error } = await supabase
+    console.log('=== SAMPLE RECORDS DEBUG ===');
+    
+    // Test 1: Basic select with minimal fields
+    console.log('Test 1: Basic select...');
+    const basicTest = await supabase
+      .from('inventory_unit_preference')
+      .select('pk')
+      .limit(3);
+    console.log('Basic test:', { error: basicTest.error, count: basicTest.data?.length });
+
+    // Test 2: Select specific fields
+    console.log('Test 2: Specific fields...');
+    const fieldTest = await supabase
+      .from('inventory_unit_preference')
+      .select('pk, id, updated_at')
+      .limit(3);
+    console.log('Field test:', { error: fieldTest.error, count: fieldTest.data?.length });
+
+    // Test 3: Select with JSONB data
+    console.log('Test 3: Including JSONB data...');
+    const jsonbTest = await supabase
       .from('inventory_unit_preference')
       .select('pk, id, data, updated_at')
-      .limit(5);
+      .limit(3);
+    console.log('JSONB test:', { error: jsonbTest.error, count: jsonbTest.data?.length });
 
-    if (error) {
-      console.error('Sample query error:', error);
+    if (jsonbTest.error) {
+      console.error('JSONB test error details:', {
+        message: jsonbTest.error.message,
+        code: jsonbTest.error.code,
+        details: jsonbTest.error.details,
+        hint: jsonbTest.error.hint
+      });
       return [];
     }
 
-    console.log('Sample records:', data);
-    return data || [];
+    if (jsonbTest.data && jsonbTest.data.length > 0) {
+      console.log('Sample record structure:', JSON.stringify(jsonbTest.data[0], null, 2));
+    }
+
+    return jsonbTest.data || [];
 
   } catch (error) {
     console.error('Error getting sample records:', error);
     return [];
+  }
+}
+
+// Test different query approaches
+export async function debugQueryApproaches(): Promise<void> {
+  if (!supabase) {
+    console.log('Supabase not configured');
+    return;
+  }
+
+  console.log('=== QUERY APPROACH DEBUGGING ===');
+
+  // Approach 1: No constraints
+  console.log('Approach 1: No constraints...');
+  try {
+    const noConstraints = await supabase
+      .from('inventory_unit_preference')
+      .select('pk, id, data')
+      .limit(5);
+    console.log('No constraints result:', { 
+      error: noConstraints.error?.message, 
+      count: noConstraints.data?.length 
+    });
+  } catch (e) {
+    console.error('No constraints error:', e);
+  }
+
+  // Approach 2: Only null check
+  console.log('Approach 2: Only null check...');
+  try {
+    const nullCheck = await supabase
+      .from('inventory_unit_preference')
+      .select('pk, id, data')
+      .not('data', 'is', null)
+      .limit(5);
+    console.log('Null check result:', { 
+      error: nullCheck.error?.message, 
+      count: nullCheck.data?.length 
+    });
+  } catch (e) {
+    console.error('Null check error:', e);
+  }
+
+  // Approach 3: Check RLS policies
+  console.log('Approach 3: Testing RLS policies...');
+  try {
+    const rlsTest = await supabase.rpc('version');
+    console.log('RLS test (version call):', { error: rlsTest.error?.message, data: rlsTest.data });
+  } catch (e) {
+    console.error('RLS test error:', e);
   }
 }
