@@ -76,9 +76,18 @@ export default function Home() {
         return acc;
       }, []);
 
+      console.log('Frontend received properties:', uniqueProperties.length);
       return uniqueProperties;
     },
     enabled: true,
+  });
+
+  // Debug logging
+  console.log('Component state:', { 
+    propertiesLength: properties.length, 
+    isLoading, 
+    hasSearched, 
+    error: error?.message 
   });
 
   const handleSearch = () => {
