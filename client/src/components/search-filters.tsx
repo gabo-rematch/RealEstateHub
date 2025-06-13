@@ -20,7 +20,7 @@ interface SearchFiltersProps {
   isLoading: boolean;
 }
 
-// Searchable Select Component
+// Searchable Select Component (Single Select)
 interface SearchableSelectProps {
   value: string;
   onValueChange: (value: string) => void;
@@ -67,6 +67,74 @@ function SearchableSelect({ value, onValueChange, options, placeholder, searchPl
                     className={cn(
                       "mr-2 h-4 w-4",
                       value === option ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {option}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Searchable Multi-Select Component
+interface SearchableMultiSelectProps {
+  values: string[];
+  onValuesChange: (values: string[]) => void;
+  options: string[];
+  placeholder: string;
+  searchPlaceholder: string;
+  emptyText: string;
+}
+
+function SearchableMultiSelect({ values, onValuesChange, options, placeholder, searchPlaceholder, emptyText }: SearchableMultiSelectProps) {
+  const [open, setOpen] = useState(false);
+
+  const handleSelect = (selectedValue: string) => {
+    const newValues = values.includes(selectedValue)
+      ? values.filter(value => value !== selectedValue)
+      : [...values, selectedValue];
+    onValuesChange(newValues);
+  };
+
+  const displayText = values.length === 0 
+    ? placeholder 
+    : values.length === 1 
+    ? values[0] 
+    : `${values.length} selected`;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+        >
+          <span className="truncate">{displayText}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-full p-0">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} />
+          <CommandList>
+            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandGroup>
+              {options.map((option) => (
+                <CommandItem
+                  key={option}
+                  value={option}
+                  onSelect={() => handleSelect(option)}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      values.includes(option) ? "opacity-100" : "opacity-0"
                     )}
                   />
                   {option}
@@ -155,38 +223,39 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                       <Label htmlFor="property-type" className="block text-sm font-medium text-gray-700 mb-2">
                         Property Type
                       </Label>
-                      <Select value={filters.property_type?.[0] || "any"} onValueChange={(value) => updateFilter('property_type', value === "any" ? undefined : [value])}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Any property type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="any">Any property type</SelectItem>
-                          {filterOptions.propertyTypes?.map((type: string) => (
-                            <SelectItem key={type} value={type}>
-                              {type.charAt(0).toUpperCase() + type.slice(1)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableMultiSelect
+                        values={filters.property_type || []}
+                        onValuesChange={(values) => updateFilter('property_type', values.length === 0 ? undefined : values)}
+                        options={filterOptions.propertyTypes || []}
+                        placeholder="Search and select property types..."
+                        searchPlaceholder="Search property types..."
+                        emptyText="No property types found."
+                      />
                     </div>
                     
                     <div>
                       <Label htmlFor="beds" className="block text-sm font-medium text-gray-700 mb-2">
                         Bedrooms
                       </Label>
-                      <Select value={filters.bedrooms?.[0] || "any"} onValueChange={(value) => updateFilter('bedrooms', value === "any" ? undefined : [value])}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Any bedrooms" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="any">Any bedrooms</SelectItem>
-                          {filterOptions.bedrooms?.map((bedroom: number) => (
-                            <SelectItem key={bedroom} value={bedroom.toString()}>
-                              {bedroom === 0 ? "Studio" : `${bedroom} Bedroom${bedroom !== 1 ? "s" : ""}`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableMultiSelect
+                        values={filters.bedrooms?.map((b) => {
+                          const num = parseInt(b);
+                          return num === 0 ? "Studio" : `${num} Bedroom${num !== 1 ? "s" : ""}`;
+                        }) || []}
+                        onValuesChange={(values) => {
+                          const convertedValues = values.map(v => {
+                            if (v === "Studio") return "0";
+                            return v.split(" ")[0]; // Extract number from "X Bedroom(s)"
+                          });
+                          updateFilter('bedrooms', convertedValues.length === 0 ? undefined : convertedValues);
+                        }}
+                        options={filterOptions.bedrooms?.map((bedroom: number) => 
+                          bedroom === 0 ? "Studio" : `${bedroom} Bedroom${bedroom !== 1 ? "s" : ""}`
+                        ) || []}
+                        placeholder="Search and select bedrooms..."
+                        searchPlaceholder="Search bedrooms..."
+                        emptyText="No bedroom options found."
+                      />
                     </div>
                     
                     <div>
@@ -233,11 +302,11 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                       <Label htmlFor="community" className="block text-sm font-medium text-gray-700 mb-2">
                         Community
                       </Label>
-                      <SearchableSelect
-                        value={filters.communities?.[0] || ""}
-                        onValueChange={(value) => updateFilter('communities', value === "" ? undefined : [value])}
+                      <SearchableMultiSelect
+                        values={filters.communities || []}
+                        onValuesChange={(values) => updateFilter('communities', values.length === 0 ? undefined : values)}
                         options={filterOptions.communities || []}
-                        placeholder="Search and select community..."
+                        placeholder="Search and select communities..."
                         searchPlaceholder="Search communities..."
                         emptyText="No communities found."
                       />
