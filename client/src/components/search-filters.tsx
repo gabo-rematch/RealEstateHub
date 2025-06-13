@@ -141,14 +141,14 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                         <Input
                           type="number"
                           placeholder="Min price"
-                          value={filters.price_min || ""}
-                          onChange={(e) => updateFilter('price_min', e.target.value ? parseInt(e.target.value) : undefined)}
+                          value={filters.budget_min || ""}
+                          onChange={(e) => updateFilter('budget_min', e.target.value ? parseInt(e.target.value) : undefined)}
                         />
                         <Input
                           type="number"
                           placeholder="Max price"
-                          value={filters.price_max || ""}
-                          onChange={(e) => updateFilter('price_max', e.target.value ? parseInt(e.target.value) : undefined)}
+                          value={filters.budget_max || ""}
+                          onChange={(e) => updateFilter('budget_max', e.target.value ? parseInt(e.target.value) : undefined)}
                         />
                       </div>
                     </div>
@@ -157,7 +157,7 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                       <Label htmlFor="community" className="block text-sm font-medium text-gray-700 mb-2">
                         Community
                       </Label>
-                      <Select value={filters.community || "any"} onValueChange={(value) => updateFilter('community', value === "any" ? undefined : value)}>
+                      <Select value={filters.communities?.[0] || "any"} onValueChange={(value) => updateFilter('communities', value === "any" ? undefined : [value])}>
                         <SelectTrigger>
                           <SelectValue placeholder="Any community" />
                         </SelectTrigger>
@@ -176,8 +176,8 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="off-plan"
-                          checked={filters.off_plan || false}
-                          onCheckedChange={(checked) => updateFilter('off_plan', checked)}
+                          checked={filters.is_off_plan || false}
+                          onCheckedChange={(checked) => updateFilter('is_off_plan', checked)}
                         />
                         <Label htmlFor="off-plan" className="text-sm text-gray-700">
                           Off Plan Properties
@@ -186,8 +186,8 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           id="distressed"
-                          checked={filters.distressed || false}
-                          onCheckedChange={(checked) => updateFilter('distressed', checked)}
+                          checked={filters.is_distressed_deal || false}
+                          onCheckedChange={(checked) => updateFilter('is_distressed_deal', checked)}
                         />
                         <Label htmlFor="distressed" className="text-sm text-gray-700">
                           Distressed Properties

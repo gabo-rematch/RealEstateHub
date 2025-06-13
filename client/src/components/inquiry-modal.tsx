@@ -123,7 +123,7 @@ export function InquiryModal({ isOpen, onClose, selectedPropertyIds, searchFilte
       { label: "Transaction", value: filters.transaction_type },
       { label: "Bedrooms", value: filters.bedrooms?.join(', ') || 'Any' },
       { label: "Communities", value: filters.communities?.join(', ') || 'Any' },
-      { label: "Property Type", value: filters.property_type },
+      { label: "Property Type", value: filters.property_type?.join(', ') || 'Any' },
     ].filter(item => item.value);
   };
 
