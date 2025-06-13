@@ -1,0 +1,109 @@
+CONTEXT
+You are Replit AI building an MVP portal for UAE real-estate agents.
+Property data already lives in Supabase; don’t assume or redefine its schema.
+The UI is mobile-first but works on desktop.
+
+OBJECTIVE
+Create a single-page web app (React + Vite + Tailwind) that lets agents:
+
+Search units with filters.
+
+Select one or many results.
+
+Inquire repeatedly in the same browser session without re-entering details.
+
+On each inquiry submission, POST JSON to a webhook URL (provided later via env var).
+
+No other features are required.
+
+SCOPE
+In Scope
+Feature	Details
+Search filters	See “SEARCH FILTERS”.
+Results list	Card view, newest first, deduplicate identical units.
+Selection & FAB	Checkbox on each card; floating Inquire button appears once ≥ 1 card selected.
+Inquiry form	Pre-filled on first open from filters, then from last submission (sessionStorage).
+Repeat inquiries	User can open form for additional units; fields persist until page refresh.
+
+Not in Scope
+Authentication
+
+State persistence across sessions
+
+Message anonymization
+
+Database writes (all submissions go to webhook)
+
+Analytics beyond console logs
+
+SEARCH FILTERS
+Required (sticky): unit_kind, transaction_type
+Optional: property_type, beds, area_sqft_min/max, price_min/max, community, off_plan, distressed
+Show “No results — adjust filters” if query returns zero rows.
+
+UI SPECIFICATION
+1️⃣ Search Screen
+Mobile-first layout (flex column, vertical scroll).
+
+Filters accordion at top, results list below.
+
+Each card: core info + 120-char message preview.
+
+Sort by updated_at DESC.
+
+2️⃣ Floating Action Button
+Bottom-right on mobile (bottom-left desktop).
+
+Disabled until at least one card selected.
+
+3️⃣ Inquiry Form Modal
+Opens on FAB click.
+
+Required fields:
+
+Pre-filled search values
+
+Agent WhatsApp Number (tel input, validate ‘+’ & digits)
+
+Optional: notes, portal link / image URL
+
+On Submit:
+
+Build payload { selectedUnitIds: [...], formData: {...}, timestamp }
+
+fetch(WEBHOOK_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+
+Toast “Inquiry sent!” then close modal
+
+Cache form data to sessionStorage for next inquiry
+
+4️⃣ State Reset
+“New Search” button clears filters, results, selections, sessionStorage.
+
+ACCEPTANCE TESTS (Cypress)
+Search returns results with valid filters.
+
+“No results” notice shows when appropriate.
+
+Selecting cards enables FAB; unselecting disables it.
+
+Inquiry form blocks submit without valid WhatsApp number.
+
+Form pre-fills correctly on first and subsequent opens.
+
+Submit triggers a POST to WEBHOOK_URL with correct JSON payload and shows confirmation toast.
+
+DELIVERABLES
+/frontend – React project (Vite, Tailwind, Supabase JS).
+
+README.md – setup & run instructions plus env vars:
+
+VITE_SUPABASE_URL
+
+VITE_SUPABASE_ANON_KEY
+
+VITE_WEBHOOK_URL (the POST destination)
+
+cypress/ – tests covering the criteria above.
+
+Build mobile-first, commit all code, and ensure npm run dev serves on port 3000.
