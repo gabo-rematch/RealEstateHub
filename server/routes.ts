@@ -55,8 +55,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (bedrooms && Array.isArray(bedrooms) && bedrooms.length > 0) {
+        // Convert bedroom strings to numbers for database comparison
+        const bedroomNumbers = bedrooms.map(b => parseInt(b.toString()));
         query += ` AND data->'bedrooms' ?| $${paramIndex}`;
-        params.push(bedrooms);
+        params.push(bedroomNumbers.map(n => n.toString()));
         paramIndex++;
       }
 
