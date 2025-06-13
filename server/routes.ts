@@ -193,44 +193,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Get unique kinds
       const kindsResult = await queryDatabase(`
-        SELECT DISTINCT data->>'kind' as value
-        FROM inventory_unit_preference 
-        WHERE data->>'kind' IS NOT NULL
+        SELECT DISTINCT x.kind AS value
+        FROM inventory_unit_preference AS t,
+             LATERAL (
+               SELECT UNNEST(
+                 CASE
+                   WHEN t.data->'kind' IS NULL THEN '{}'::text[]
+                   WHEN jsonb_typeof(t.data->'kind') = 'array' THEN (
+                     SELECT array_agg(elem)
+                     FROM jsonb_array_elements_text(t.data->'kind') AS elem
+                   )
+                   ELSE ARRAY[ t.data->>'kind' ]
+                 END
+               ) AS kind
+             ) AS x
         ORDER BY value
       `);
 
       // Get unique transaction types
       const transactionTypesResult = await queryDatabase(`
-        SELECT DISTINCT data->>'transaction_type' as value
-        FROM inventory_unit_preference 
-        WHERE data->>'transaction_type' IS NOT NULL
+        SELECT DISTINCT x.transaction_type AS value
+        FROM inventory_unit_preference AS t,
+             LATERAL (
+               SELECT UNNEST(
+                 CASE
+                   WHEN t.data->'transaction_type' IS NULL THEN '{}'::text[]
+                   WHEN jsonb_typeof(t.data->'transaction_type') = 'array' THEN (
+                     SELECT array_agg(elem)
+                     FROM jsonb_array_elements_text(t.data->'transaction_type') AS elem
+                   )
+                   ELSE ARRAY[ t.data->>'transaction_type' ]
+                 END
+               ) AS transaction_type
+             ) AS x
         ORDER BY value
       `);
 
-      // Get unique property types (stored as strings)
+      // Get unique property types
       const propertyTypesResult = await queryDatabase(`
-        SELECT DISTINCT data->>'property_type' as value
-        FROM inventory_unit_preference 
-        WHERE data->>'property_type' IS NOT NULL 
-        AND data->>'property_type' != ''
+        SELECT DISTINCT x.property_type AS value
+        FROM inventory_unit_preference AS t,
+             LATERAL (
+               SELECT UNNEST(
+                 CASE
+                   WHEN t.data->'property_type' IS NULL THEN '{}'::text[]
+                   WHEN jsonb_typeof(t.data->'property_type') = 'array' THEN (
+                     SELECT array_agg(elem)
+                     FROM jsonb_array_elements_text(t.data->'property_type') AS elem
+                   )
+                   ELSE ARRAY[ t.data->>'property_type' ]
+                 END
+               ) AS property_type
+             ) AS x
+        WHERE x.property_type IS NOT NULL AND x.property_type != ''
         ORDER BY value
       `);
 
-      // Get unique bedroom counts (stored as numbers)
+      // Get unique bedroom counts
       const bedroomsResult = await queryDatabase(`
-        SELECT DISTINCT (data->>'bedrooms')::int as value
-        FROM inventory_unit_preference 
-        WHERE data->>'bedrooms' IS NOT NULL 
-        AND data->>'bedrooms' ~ '^[0-9]+$'
+        SELECT DISTINCT x.bedrooms AS value
+        FROM inventory_unit_preference AS t,
+             LATERAL (
+               SELECT UNNEST(
+                 CASE
+                   WHEN t.data->'bedrooms' IS NULL THEN '{}'::text[]
+                   WHEN jsonb_typeof(t.data->'bedrooms') = 'array' THEN (
+                     SELECT array_agg(elem)
+                     FROM jsonb_array_elements_text(t.data->'bedrooms') AS elem
+                   )
+                   ELSE ARRAY[ t.data->>'bedrooms' ]
+                 END
+               ) AS bedrooms
+             ) AS x
         ORDER BY value
       `);
 
-      // Get unique communities from arrays
+      // Get unique communities
       const communitiesResult = await queryDatabase(`
-        SELECT DISTINCT jsonb_array_elements_text(data->'communities') as value
-        FROM inventory_unit_preference 
-        WHERE data->'communities' IS NOT NULL 
-        AND jsonb_array_length(data->'communities') > 0
+        SELECT DISTINCT x.community AS value
+        FROM inventory_unit_preference AS t,
+             LATERAL (
+               SELECT UNNEST(
+                 CASE
+                   WHEN t.data->'communities' IS NULL THEN '{}'::text[]
+                   WHEN jsonb_typeof(t.data->'communities') = 'array' THEN (
+                     SELECT array_agg(elem)
+                     FROM jsonb_array_elements_text(t.data->'communities') AS elem
+                   )
+                   ELSE ARRAY[ t.data->>'communities' ]
+                 END
+               ) AS community
+             ) AS x
         ORDER BY value
         LIMIT 200
       `);
@@ -239,8 +292,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         kinds: kindsResult.map(row => row.value).filter(Boolean),
         transactionTypes: transactionTypesResult.map(row => row.value).filter(Boolean),
         propertyTypes: propertyTypesResult.map(row => row.value).filter(Boolean),
-        bedrooms: bedroomsResult.map(row => row.value).filter(val => val !== null && val >= 0),
-        communities: communitiesResult.map(row => row.value).filter(Boolean)
+        bedrooms: bedroomsResult.map(row => parseInt(row.value)).filter(val => !isNaN(val) && val >= 0 && val <= 20).sort((a, b) => a - b),
+        communities: communitiesResult.map(row => row.value).filter(Boolean).slice(0, 200)
       };
 
       res.json(filterOptions);
