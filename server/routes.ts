@@ -188,6 +188,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get unique communities for filter dropdown
+  app.get("/api/communities", async (req, res) => {
+    try {
+      const result = await queryDatabase(`
+        SELECT DISTINCT jsonb_array_elements_text(data->'communities') as community
+        FROM inventory_unit_preference 
+        WHERE data->'communities' IS NOT NULL 
+        AND jsonb_array_length(data->'communities') > 0
+        ORDER BY community
+        LIMIT 100
+      `);
+      
+      const communities = result.map(row => row.community).filter(Boolean);
+      res.json(communities);
+    } catch (error) {
+      console.error('Communities API error:', error);
+      res.status(500).json({ error: 'Failed to fetch communities' });
+    }
+  });
+
   // Test database endpoint
   app.get("/api/test-db", async (req, res) => {
     try {

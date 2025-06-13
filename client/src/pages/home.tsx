@@ -77,6 +77,7 @@ export default function Home() {
       }, []);
 
       console.log('Frontend received properties:', uniqueProperties.length);
+      console.log('Sample property:', uniqueProperties[0]);
       return uniqueProperties;
     },
     enabled: true,
@@ -84,7 +85,8 @@ export default function Home() {
 
   // Debug logging
   console.log('Component state:', { 
-    propertiesLength: properties.length, 
+    propertiesLength: properties?.length || 0, 
+    propertiesData: properties,
     isLoading, 
     hasSearched, 
     error: error?.message 
@@ -270,7 +272,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                {isLoading ? (
+                {isLoading && properties.length === 0 ? (
                   <div className="space-y-4">
                     {[...Array(5)].map((_, i) => (
                       <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -286,7 +288,7 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
-                ) : properties.length > 0 ? (
+                ) : data && data.length > 0 ? (
                   <div className="space-y-4">
                     {(properties as SupabaseProperty[]).map((property: SupabaseProperty) => (
                       <SupabasePropertyCard

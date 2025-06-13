@@ -87,8 +87,13 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="any">Any property type</SelectItem>
-                          <SelectItem value="residential">Residential</SelectItem>
-                          <SelectItem value="commercial">Commercial</SelectItem>
+                          <SelectItem value="apartment">Apartment</SelectItem>
+                          <SelectItem value="land">Land</SelectItem>
+                          <SelectItem value="office">Office</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                          <SelectItem value="retail">Retail</SelectItem>
+                          <SelectItem value="townhouse">Townhouse</SelectItem>
+                          <SelectItem value="villa">Villa</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
