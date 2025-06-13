@@ -148,74 +148,115 @@ export async function querySupabasePropertiesDirect(filters: SearchFilters): Pro
     const hasJsonbData = sampleData && sampleData[0] && sampleData[0].data;
     console.log('Table has JSONB data field:', hasJsonbData);
 
-    // Apply filters using JSONB operators
-    if (filters.unit_kind && filters.unit_kind !== '') {
-      console.log(`Applying JSONB filter for unit_kind: ${filters.unit_kind}`);
-      // Try different possible field names in the JSONB data
-      query = query.or(`data->>rec_kind.eq.${filters.unit_kind},data->>kind.eq.${filters.unit_kind}`);
-    }
+    // Apply filters based on the table structure
+    if (hasJsonbData) {
+      // For tables with JSONB data field
+      console.log('Applying JSONB filters...');
+      
+      if (filters.unit_kind && filters.unit_kind !== '') {
+        console.log(`Applying JSONB filter for unit_kind: ${filters.unit_kind}`);
+        query = query.or(`data->>rec_kind.eq.${filters.unit_kind},data->>kind.eq.${filters.unit_kind}`);
+      }
 
-    if (filters.transaction_type && filters.transaction_type !== '') {
-      console.log(`Applying JSONB filter for transaction_type: ${filters.transaction_type}`);
-      query = query.or(`data->>rec_transaction_type.eq.${filters.transaction_type},data->>transaction_type.eq.${filters.transaction_type}`);
-    }
+      if (filters.transaction_type && filters.transaction_type !== '') {
+        console.log(`Applying JSONB filter for transaction_type: ${filters.transaction_type}`);
+        query = query.or(`data->>rec_transaction_type.eq.${filters.transaction_type},data->>transaction_type.eq.${filters.transaction_type}`);
+      }
+    } else {
+      // For tables with direct fields (inventory_unit table)
+      console.log('Applying direct field filters...');
+      
+      if (filters.unit_kind && filters.unit_kind !== '') {
+        console.log(`Applying direct filter for unit_kind: ${filters.unit_kind}`);
+        query = query.eq('kind', filters.unit_kind);
+      }
 
-    // Add other property filters
-    if (filters.bedrooms && filters.bedrooms.length > 0) {
-      console.log(`Applying bedroom filter: ${filters.bedrooms}`);
-      // For array fields, we need to check if any of the filter values match
-      const bedroomFilters = filters.bedrooms.map(bed => 
-        `data->>bedrooms.cs.["${bed}"]`
-      ).join(',');
-      if (bedroomFilters) {
-        query = query.or(bedroomFilters);
+      // Note: inventory_unit table doesn't have transaction_type field, it's in the JSONB data
+      // We'll skip transaction_type filtering for direct field tables for now
+      if (filters.transaction_type && filters.transaction_type !== '') {
+        console.log(`Skipping transaction_type filter - not available in ${workingTable} table structure`);
       }
     }
 
-    if (filters.communities && filters.communities.length > 0) {
-      console.log(`Applying community filter: ${filters.communities}`);
-      const communityFilters = filters.communities.map(community => 
-        `data->>communities.cs.["${community}"]`
-      ).join(',');
-      if (communityFilters) {
-        query = query.or(communityFilters);
+    // Add other property filters based on table structure
+    if (hasJsonbData) {
+      // JSONB filtering
+      if (filters.bedrooms && filters.bedrooms.length > 0) {
+        console.log(`Applying JSONB bedroom filter: ${filters.bedrooms}`);
+        const bedroomFilters = filters.bedrooms.map(bed => 
+          `data->>bedrooms.cs.["${bed}"]`
+        ).join(',');
+        if (bedroomFilters) {
+          query = query.or(bedroomFilters);
+        }
       }
-    }
 
-    if (filters.budget_min && filters.budget_min > 0) {
-      console.log(`Applying budget_min filter: ${filters.budget_min}`);
-      query = query.gte('data->>price_aed', filters.budget_min.toString());
-    }
+      if (filters.communities && filters.communities.length > 0) {
+        console.log(`Applying JSONB community filter: ${filters.communities}`);
+        const communityFilters = filters.communities.map(community => 
+          `data->>communities.cs.["${community}"]`
+        ).join(',');
+        if (communityFilters) {
+          query = query.or(communityFilters);
+        }
+      }
 
-    if (filters.budget_max && filters.budget_max > 0) {
-      console.log(`Applying budget_max filter: ${filters.budget_max}`);
-      query = query.lte('data->>price_aed', filters.budget_max.toString());
-    }
+      if (filters.budget_min && filters.budget_min > 0) {
+        console.log(`Applying JSONB budget_min filter: ${filters.budget_min}`);
+        query = query.gte('data->>price_aed', filters.budget_min.toString());
+      }
 
-    if (filters.area_sqft_min && filters.area_sqft_min > 0) {
-      console.log(`Applying area_sqft_min filter: ${filters.area_sqft_min}`);
-      query = query.gte('data->>area_sqft', filters.area_sqft_min.toString());
-    }
+      if (filters.budget_max && filters.budget_max > 0) {
+        console.log(`Applying JSONB budget_max filter: ${filters.budget_max}`);
+        query = query.lte('data->>price_aed', filters.budget_max.toString());
+      }
 
-    if (filters.area_sqft_max && filters.area_sqft_max > 0) {
-      console.log(`Applying area_sqft_max filter: ${filters.area_sqft_max}`);
-      query = query.lte('data->>area_sqft', filters.area_sqft_max.toString());
-    }
+      if (filters.area_sqft_min && filters.area_sqft_min > 0) {
+        console.log(`Applying JSONB area_sqft_min filter: ${filters.area_sqft_min}`);
+        query = query.gte('data->>area_sqft', filters.area_sqft_min.toString());
+      }
 
-    if (filters.is_off_plan !== undefined) {
-      console.log(`Applying is_off_plan filter: ${filters.is_off_plan}`);
-      query = query.eq('data->>is_off_plan', filters.is_off_plan.toString());
-    }
+      if (filters.area_sqft_max && filters.area_sqft_max > 0) {
+        console.log(`Applying JSONB area_sqft_max filter: ${filters.area_sqft_max}`);
+        query = query.lte('data->>area_sqft', filters.area_sqft_max.toString());
+      }
 
-    if (filters.is_distressed_deal !== undefined) {
-      console.log(`Applying is_distressed_deal filter: ${filters.is_distressed_deal}`);
-      query = query.eq('data->>is_distressed_deal', filters.is_distressed_deal.toString());
+      if (filters.is_off_plan !== undefined) {
+        console.log(`Applying JSONB is_off_plan filter: ${filters.is_off_plan}`);
+        query = query.eq('data->>is_off_plan', filters.is_off_plan.toString());
+      }
+
+      if (filters.is_distressed_deal !== undefined) {
+        console.log(`Applying JSONB is_distressed_deal filter: ${filters.is_distressed_deal}`);
+        query = query.eq('data->>is_distressed_deal', filters.is_distressed_deal.toString());
+      }
+    } else {
+      // Direct field filtering for non-JSONB tables
+      if (filters.bedrooms && filters.bedrooms.length > 0) {
+        console.log(`Applying direct bedroom filter: ${filters.bedrooms}`);
+        query = query.in('bedrooms', filters.bedrooms);
+      }
+
+      if (filters.communities && filters.communities.length > 0) {
+        console.log(`Applying direct community filter: ${filters.communities}`);
+        query = query.in('communities', filters.communities);
+      }
+
+      if (filters.budget_min && filters.budget_min > 0) {
+        console.log(`Applying direct budget_min filter: ${filters.budget_min}`);
+        query = query.gte('price_aed', filters.budget_min);
+      }
+
+      if (filters.budget_max && filters.budget_max > 0) {
+        console.log(`Applying direct budget_max filter: ${filters.budget_max}`);
+        query = query.lte('price_aed', filters.budget_max);
+      }
     }
 
     // Order by updated_at and limit results
     query = query.order('updated_at', { ascending: false }).limit(50);
 
-    console.log('Executing inventory_unit_preference query...');
+    console.log(`Executing ${workingTable} query...`);
     const { data, error } = await query;
 
     if (error) {
@@ -230,48 +271,56 @@ export async function querySupabasePropertiesDirect(filters: SearchFilters): Pro
       console.log('First result JSONB data:', data[0].data);
     }
 
-    // Transform the JSONB data to our expected format
+    // Transform the data to our expected format based on table structure
     const transformedData = (data || []).map((item: any) => {
-      const jsonData = item.data || {};
+      let sourceData: any;
+      
+      if (hasJsonbData) {
+        // Extract from JSONB data field
+        sourceData = item.data || {};
+      } else {
+        // Use direct fields
+        sourceData = item;
+      }
       
       return {
         pk: item.pk,
         id: item.id || String(item.pk),
-        kind: jsonData.rec_kind || jsonData.kind || 'unknown',
-        transaction_type: jsonData.rec_transaction_type || jsonData.transaction_type || 'sale',
-        bedrooms: Array.isArray(jsonData.bedrooms) ? jsonData.bedrooms : 
-                 (jsonData.bedrooms ? [jsonData.bedrooms] : []),
-        property_type: Array.isArray(jsonData.property_type) ? jsonData.property_type : 
-                      (jsonData.property_type ? [jsonData.property_type] : []),
-        communities: Array.isArray(jsonData.communities) ? jsonData.communities : 
-                    Array.isArray(jsonData.community) ? jsonData.community :
-                    (jsonData.communities || jsonData.community ? [jsonData.communities || jsonData.community] : []),
-        price_aed: jsonData.price_aed ? parseFloat(String(jsonData.price_aed)) : null,
-        budget_max_aed: jsonData.budget_max_aed ? parseFloat(String(jsonData.budget_max_aed)) : null,
-        budget_min_aed: jsonData.budget_min_aed ? parseFloat(String(jsonData.budget_min_aed)) : null,
-        area_sqft: jsonData.area_sqft ? parseFloat(String(jsonData.area_sqft)) : null,
-        message_body_raw: jsonData.message_body_raw || 'Property inquiry',
-        furnishing: jsonData.furnishing,
-        is_urgent: jsonData.is_urgent || item.priority || false,
-        is_agent_covered: jsonData.is_agent_covered || true,
-        bathrooms: Array.isArray(jsonData.bathrooms) ? jsonData.bathrooms : 
-                  (jsonData.bathrooms ? [jsonData.bathrooms] : []),
-        location_raw: jsonData.location_raw,
-        other_details: jsonData.other_details,
-        has_maid_bedroom: jsonData.has_maid_bedroom,
-        is_direct: jsonData.is_direct || false,
-        mortgage_or_cash: jsonData.mortgage_or_cash,
-        is_distressed_deal: jsonData.is_distressed_deal || false,
-        is_off_plan: jsonData.is_off_plan || false,
-        is_mortgage_approved: jsonData.is_mortgage_approved,
-        is_community_agnostic: jsonData.is_community_agnostic,
-        developers: Array.isArray(jsonData.developers) ? jsonData.developers : 
-                   (jsonData.developers ? [jsonData.developers] : []),
-        whatsapp_participant: jsonData.whatsapp_participant,
-        agent_phone: jsonData.agent_phone,
-        groupJID: jsonData.groupJID,
-        evolution_instance_id: jsonData.evolution_instance_id,
-        updated_at: item.updated_at
+        kind: sourceData.rec_kind || sourceData.kind || 'unknown',
+        transaction_type: sourceData.rec_transaction_type || sourceData.transaction_type || 'sale',
+        bedrooms: Array.isArray(sourceData.bedrooms) ? sourceData.bedrooms : 
+                 (sourceData.bedrooms ? [sourceData.bedrooms] : []),
+        property_type: Array.isArray(sourceData.property_type) ? sourceData.property_type : 
+                      (sourceData.property_type ? [sourceData.property_type] : []),
+        communities: Array.isArray(sourceData.communities) ? sourceData.communities : 
+                    Array.isArray(sourceData.community) ? sourceData.community :
+                    (sourceData.communities || sourceData.community ? [sourceData.communities || sourceData.community] : []),
+        price_aed: sourceData.price_aed ? parseFloat(String(sourceData.price_aed)) : null,
+        budget_max_aed: sourceData.budget_max_aed ? parseFloat(String(sourceData.budget_max_aed)) : null,
+        budget_min_aed: sourceData.budget_min_aed ? parseFloat(String(sourceData.budget_min_aed)) : null,
+        area_sqft: sourceData.area_sqft ? parseFloat(String(sourceData.area_sqft)) : null,
+        message_body_raw: sourceData.message_body_raw || `${sourceData.rec_kind || sourceData.kind || 'Property'} inquiry`,
+        furnishing: sourceData.furnishing,
+        is_urgent: sourceData.is_urgent || item.priority || false,
+        is_agent_covered: sourceData.is_agent_covered || true,
+        bathrooms: Array.isArray(sourceData.bathrooms) ? sourceData.bathrooms : 
+                  (sourceData.bathrooms ? [sourceData.bathrooms] : []),
+        location_raw: sourceData.location_raw,
+        other_details: sourceData.other_details,
+        has_maid_bedroom: sourceData.has_maid_bedroom,
+        is_direct: sourceData.is_direct || false,
+        mortgage_or_cash: sourceData.mortgage_or_cash,
+        is_distressed_deal: sourceData.is_distressed_deal || false,
+        is_off_plan: sourceData.is_off_plan || false,
+        is_mortgage_approved: sourceData.is_mortgage_approved,
+        is_community_agnostic: sourceData.is_community_agnostic,
+        developers: Array.isArray(sourceData.developers) ? sourceData.developers : 
+                   (sourceData.developers ? [sourceData.developers] : []),
+        whatsapp_participant: sourceData.whatsapp_participant || item.agent_details?.whatsapp_participant,
+        agent_phone: sourceData.agent_phone,
+        groupJID: sourceData.groupJID || item.agent_details?.whatsapp_remote_jid,
+        evolution_instance_id: sourceData.evolution_instance_id || item.agent_details?.evolution_instance_id,
+        updated_at: item.updated_at || item.created_at
       };
     });
 
