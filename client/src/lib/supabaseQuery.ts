@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { SearchFilters } from '@/types/property';
+import type { SearchFilters } from '../types/property';
 
 export interface SupabaseProperty {
   pk: number;
@@ -37,226 +37,116 @@ export interface SupabaseProperty {
 
 export async function querySupabaseProperties(filters: SearchFilters): Promise<SupabaseProperty[]> {
   if (!supabase) {
-    throw new Error('Supabase not initialized');
+    console.log('Supabase not configured, returning empty array');
+    return [];
   }
-
-  // Build the complex SQL query similar to your provided query
-  const { data, error } = await supabase.rpc('search_properties', {
-    bedrooms_filter: filters.bedrooms || [],
-    communities_filter: filters.communities || [],
-    transaction_type_filter: filters.transaction_type || null,
-    kind_filter: filters.unit_kind || null,
-    property_type_filter: filters.property_type || [],
-    budget_min_filter: filters.budget_min || 0,
-    budget_max_filter: filters.budget_max || 0,
-    price_aed_filter: filters.price_aed || 0,
-    area_min_filter: filters.area_sqft_min || 0,
-    area_max_filter: filters.area_sqft_max || 0,
-    is_distressed_filter: filters.is_distressed_deal,
-    is_off_plan_filter: filters.is_off_plan
-  });
-
-  if (error) {
-    console.error('Supabase RPC error:', error);
-    throw new Error(error.message);
-  }
-
-  return data || [];
-}
-
-// Query the inventory_unit_preference table with property data in JSONB format
-export async function querySupabasePropertiesDirect(filters: SearchFilters): Promise<any[]> {
-  if (!supabase) {
-    console.error('Supabase client not initialized');
-    throw new Error('Database connection not available');
-  }
-
-  console.log('Querying inventory_unit_preference table with JSONB data, filters:', filters);
 
   try {
-    // Check all accessible tables to find where the 45k+ records are stored
-    console.log('Checking all accessible tables for property data...');
-    
-    const tablesToCheck = [
-      'inventory_unit_preference',
-      'inventory_unit', 
-      'message',
-      'inventory',
-      'unit_preference',
-      'preferences',
-      'property_data'
-    ];
-    
-    let workingTable = null;
-    let sampleData = null;
-    
-    for (const tableName of tablesToCheck) {
-      try {
-        console.log(`Testing table: ${tableName}`);
-        const testQuery = await supabase
-          .from(tableName)
-          .select('*')
-          .limit(3);
-        
-        console.log(`${tableName} result:`, {
-          error: testQuery.error?.message || null,
-          count: testQuery.data?.length || 0
-        });
-        
-        if (!testQuery.error && testQuery.data && testQuery.data.length > 0) {
-          console.log(`${tableName} sample record:`, testQuery.data[0]);
-          console.log(`${tableName} fields:`, Object.keys(testQuery.data[0]));
-          
-          // Check if this table has property data
-          const sample = testQuery.data[0];
-          if (sample.data || sample.kind || sample.rec_kind || sample.property_type) {
-            workingTable = tableName;
-            sampleData = testQuery.data;
-            console.log(`Found property data in ${tableName}`);
-            break;
-          }
-        }
-      } catch (error) {
-        console.log(`${tableName} access failed:`, error);
-      }
-    }
-    
-    if (!workingTable) {
-      console.log('No accessible table found with property data');
-      return [];
-    }
-    
-    console.log(`Using table: ${workingTable}`);
-    
-    // Try count query to see how many records are accessible
-    try {
-      const countQuery = await supabase
-        .from(workingTable)
-        .select('*', { count: 'exact', head: true });
-      
-      console.log(`${workingTable} total count:`, countQuery.count);
-    } catch (error) {
-      console.log('Count query failed:', error);
-    }
+    console.log('Querying inventory_unit_preference table, filters:', filters);
 
-    // Build the main query using the working table we found
+    // Build query using the exact structure from the provided SQL
     let query = supabase
-      .from(workingTable)
-      .select('*');
+      .from('inventory_unit_preference')
+      .select(`
+        pk,
+        id,
+        data,
+        updated_at,
+        inventory_unit_pk
+      `);
+
+    // Apply filters using JSONB operators based on the SQL structure
     
-    // Determine the data structure and apply filters accordingly
-    const hasJsonbData = sampleData && sampleData[0] && sampleData[0].data;
-    console.log('Table has JSONB data field:', hasJsonbData);
+    // Kind filter (unit_kind -> kind in JSONB data)
+    if (filters.unit_kind && filters.unit_kind !== '') {
+      console.log(`Applying kind filter: ${filters.unit_kind}`);
+      query = query.eq('data->kind', filters.unit_kind);
+    }
 
-    // Apply filters based on the table structure
-    if (hasJsonbData) {
-      // For tables with JSONB data field
-      console.log('Applying JSONB filters...');
-      
-      if (filters.unit_kind && filters.unit_kind !== '') {
-        console.log(`Applying JSONB filter for unit_kind: ${filters.unit_kind}`);
-        query = query.or(`data->>rec_kind.eq.${filters.unit_kind},data->>kind.eq.${filters.unit_kind}`);
-      }
+    // Transaction type filter
+    if (filters.transaction_type && filters.transaction_type !== '') {
+      console.log(`Applying transaction_type filter: ${filters.transaction_type}`);
+      query = query.eq('data->transaction_type', filters.transaction_type);
+    }
 
-      if (filters.transaction_type && filters.transaction_type !== '') {
-        console.log(`Applying JSONB filter for transaction_type: ${filters.transaction_type}`);
-        query = query.or(`data->>rec_transaction_type.eq.${filters.transaction_type},data->>transaction_type.eq.${filters.transaction_type}`);
-      }
-    } else {
-      // For tables with direct fields (inventory_unit table)
-      console.log('Applying direct field filters...');
-      
-      if (filters.unit_kind && filters.unit_kind !== '') {
-        console.log(`Applying direct filter for unit_kind: ${filters.unit_kind}`);
-        query = query.eq('kind', filters.unit_kind);
-      }
-
-      // Note: inventory_unit table doesn't have transaction_type field, it's in the JSONB data
-      // We'll skip transaction_type filtering for direct field tables for now
-      if (filters.transaction_type && filters.transaction_type !== '') {
-        console.log(`Skipping transaction_type filter - not available in ${workingTable} table structure`);
+    // Bedrooms filter - use array overlap for JSONB arrays
+    if (filters.bedrooms && filters.bedrooms.length > 0) {
+      console.log(`Applying bedrooms filter: ${filters.bedrooms}`);
+      const bedroomNumbers = filters.bedrooms.map(b => parseFloat(b)).filter(n => !isNaN(n));
+      if (bedroomNumbers.length > 0) {
+        // PostgreSQL array overlap operator for JSONB
+        query = query.overlaps('data->bedrooms', bedroomNumbers);
       }
     }
 
-    // Add other property filters based on table structure
-    if (hasJsonbData) {
-      // JSONB filtering
-      if (filters.bedrooms && filters.bedrooms.length > 0) {
-        console.log(`Applying JSONB bedroom filter: ${filters.bedrooms}`);
-        const bedroomFilters = filters.bedrooms.map(bed => 
-          `data->>bedrooms.cs.["${bed}"]`
-        ).join(',');
-        if (bedroomFilters) {
-          query = query.or(bedroomFilters);
-        }
-      }
-
-      if (filters.communities && filters.communities.length > 0) {
-        console.log(`Applying JSONB community filter: ${filters.communities}`);
-        const communityFilters = filters.communities.map(community => 
-          `data->>communities.cs.["${community}"]`
-        ).join(',');
-        if (communityFilters) {
-          query = query.or(communityFilters);
-        }
-      }
-
-      if (filters.budget_min && filters.budget_min > 0) {
-        console.log(`Applying JSONB budget_min filter: ${filters.budget_min}`);
-        query = query.gte('data->>price_aed', filters.budget_min.toString());
-      }
-
-      if (filters.budget_max && filters.budget_max > 0) {
-        console.log(`Applying JSONB budget_max filter: ${filters.budget_max}`);
-        query = query.lte('data->>price_aed', filters.budget_max.toString());
-      }
-
-      if (filters.area_sqft_min && filters.area_sqft_min > 0) {
-        console.log(`Applying JSONB area_sqft_min filter: ${filters.area_sqft_min}`);
-        query = query.gte('data->>area_sqft', filters.area_sqft_min.toString());
-      }
-
-      if (filters.area_sqft_max && filters.area_sqft_max > 0) {
-        console.log(`Applying JSONB area_sqft_max filter: ${filters.area_sqft_max}`);
-        query = query.lte('data->>area_sqft', filters.area_sqft_max.toString());
-      }
-
-      if (filters.is_off_plan !== undefined) {
-        console.log(`Applying JSONB is_off_plan filter: ${filters.is_off_plan}`);
-        query = query.eq('data->>is_off_plan', filters.is_off_plan.toString());
-      }
-
-      if (filters.is_distressed_deal !== undefined) {
-        console.log(`Applying JSONB is_distressed_deal filter: ${filters.is_distressed_deal}`);
-        query = query.eq('data->>is_distressed_deal', filters.is_distressed_deal.toString());
-      }
-    } else {
-      // Direct field filtering for non-JSONB tables
-      if (filters.bedrooms && filters.bedrooms.length > 0) {
-        console.log(`Applying direct bedroom filter: ${filters.bedrooms}`);
-        query = query.in('bedrooms', filters.bedrooms);
-      }
-
-      if (filters.communities && filters.communities.length > 0) {
-        console.log(`Applying direct community filter: ${filters.communities}`);
-        query = query.in('communities', filters.communities);
-      }
-
-      if (filters.budget_min && filters.budget_min > 0) {
-        console.log(`Applying direct budget_min filter: ${filters.budget_min}`);
-        query = query.gte('price_aed', filters.budget_min);
-      }
-
-      if (filters.budget_max && filters.budget_max > 0) {
-        console.log(`Applying direct budget_max filter: ${filters.budget_max}`);
-        query = query.lte('price_aed', filters.budget_max);
-      }
+    // Communities filter - array overlap
+    if (filters.communities && filters.communities.length > 0) {
+      console.log(`Applying communities filter: ${filters.communities}`);
+      query = query.overlaps('data->communities', filters.communities);
     }
 
-    // Order by updated_at and limit results
-    query = query.order('updated_at', { ascending: false }).limit(50);
+    // Property type filter - array overlap
+    if (filters.property_type && filters.property_type.length > 0) {
+      console.log(`Applying property_type filter: ${filters.property_type}`);
+      query = query.overlaps('data->property_type', filters.property_type);
+    }
 
-    console.log(`Executing ${workingTable} query...`);
+    // Budget filters for listings only
+    if (filters.budget_min && filters.budget_min > 0) {
+      console.log(`Applying budget_min filter: ${filters.budget_min}`);
+      // Filter for listings with price >= budget_min
+      query = query.gte('data->price_aed', filters.budget_min);
+    }
+
+    if (filters.budget_max && filters.budget_max > 0) {
+      console.log(`Applying budget_max filter: ${filters.budget_max}`);
+      // Filter for listings with price <= budget_max
+      query = query.lte('data->price_aed', filters.budget_max);
+    }
+
+    // Price filter for client requests
+    if (filters.price_aed && filters.price_aed > 0) {
+      console.log(`Applying price_aed filter: ${filters.price_aed}`);
+      // For client requests: budget_min <= price <= budget_max
+      query = query
+        .lte('data->budget_min_aed', filters.price_aed)
+        .gte('data->budget_max_aed', filters.price_aed);
+    }
+
+    // Area filters
+    if (filters.area_sqft_min && filters.area_sqft_min > 0) {
+      console.log(`Applying area_sqft_min filter: ${filters.area_sqft_min}`);
+      query = query.gte('data->area_sqft', filters.area_sqft_min);
+    }
+
+    if (filters.area_sqft_max && filters.area_sqft_max > 0) {
+      console.log(`Applying area_sqft_max filter: ${filters.area_sqft_max}`);
+      query = query.lte('data->area_sqft', filters.area_sqft_max);
+    }
+
+    // Boolean filters
+    if (filters.is_off_plan !== undefined) {
+      console.log(`Applying is_off_plan filter: ${filters.is_off_plan}`);
+      query = query.eq('data->is_off_plan', filters.is_off_plan);
+    }
+
+    if (filters.is_distressed_deal !== undefined) {
+      console.log(`Applying is_distressed_deal filter: ${filters.is_distressed_deal}`);
+      query = query.eq('data->is_distressed_deal', filters.is_distressed_deal);
+    }
+
+    // Add sanity checks to ensure valid data (from SQL WHERE clause)
+    query = query
+      .not('data->kind', 'is', null)
+      .not('data->transaction_type', 'is', null)
+      .not('data->bedrooms', 'is', null)
+      .not('data->communities', 'is', null)
+      .not('data->property_type', 'is', null);
+
+    // Order and limit
+    query = query.order('updated_at', { ascending: false }).limit(100);
+
+    console.log('Executing inventory_unit_preference query...');
     const { data, error } = await query;
 
     if (error) {
@@ -271,56 +161,59 @@ export async function querySupabasePropertiesDirect(filters: SearchFilters): Pro
       console.log('First result JSONB data:', data[0].data);
     }
 
-    // Transform the data to our expected format based on table structure
+    // Transform the JSONB data to our expected format
     const transformedData = (data || []).map((item: any) => {
-      let sourceData: any;
+      const jsonData = item.data || {};
       
-      if (hasJsonbData) {
-        // Extract from JSONB data field
-        sourceData = item.data || {};
-      } else {
-        // Use direct fields
-        sourceData = item;
-      }
+      // Helper function to ensure arrays
+      const ensureArray = (value: any): any[] => {
+        if (Array.isArray(value)) return value;
+        if (value != null) return [value];
+        return [];
+      };
+
+      // Helper function to ensure numeric arrays
+      const ensureNumericArray = (value: any): number[] => {
+        if (Array.isArray(value)) return value.map(v => parseFloat(v)).filter(n => !isNaN(n));
+        if (value != null) {
+          const num = parseFloat(value);
+          return !isNaN(num) ? [num] : [];
+        }
+        return [];
+      };
       
       return {
         pk: item.pk,
         id: item.id || String(item.pk),
-        kind: sourceData.rec_kind || sourceData.kind || 'unknown',
-        transaction_type: sourceData.rec_transaction_type || sourceData.transaction_type || 'sale',
-        bedrooms: Array.isArray(sourceData.bedrooms) ? sourceData.bedrooms : 
-                 (sourceData.bedrooms ? [sourceData.bedrooms] : []),
-        property_type: Array.isArray(sourceData.property_type) ? sourceData.property_type : 
-                      (sourceData.property_type ? [sourceData.property_type] : []),
-        communities: Array.isArray(sourceData.communities) ? sourceData.communities : 
-                    Array.isArray(sourceData.community) ? sourceData.community :
-                    (sourceData.communities || sourceData.community ? [sourceData.communities || sourceData.community] : []),
-        price_aed: sourceData.price_aed ? parseFloat(String(sourceData.price_aed)) : null,
-        budget_max_aed: sourceData.budget_max_aed ? parseFloat(String(sourceData.budget_max_aed)) : null,
-        budget_min_aed: sourceData.budget_min_aed ? parseFloat(String(sourceData.budget_min_aed)) : null,
-        area_sqft: sourceData.area_sqft ? parseFloat(String(sourceData.area_sqft)) : null,
-        message_body_raw: sourceData.message_body_raw || `${sourceData.rec_kind || sourceData.kind || 'Property'} inquiry`,
-        furnishing: sourceData.furnishing,
-        is_urgent: sourceData.is_urgent || item.priority || false,
-        is_agent_covered: sourceData.is_agent_covered || true,
-        bathrooms: Array.isArray(sourceData.bathrooms) ? sourceData.bathrooms : 
-                  (sourceData.bathrooms ? [sourceData.bathrooms] : []),
-        location_raw: sourceData.location_raw,
-        other_details: sourceData.other_details,
-        has_maid_bedroom: sourceData.has_maid_bedroom,
-        is_direct: sourceData.is_direct || false,
-        mortgage_or_cash: sourceData.mortgage_or_cash,
-        is_distressed_deal: sourceData.is_distressed_deal || false,
-        is_off_plan: sourceData.is_off_plan || false,
-        is_mortgage_approved: sourceData.is_mortgage_approved,
-        is_community_agnostic: sourceData.is_community_agnostic,
-        developers: Array.isArray(sourceData.developers) ? sourceData.developers : 
-                   (sourceData.developers ? [sourceData.developers] : []),
-        whatsapp_participant: sourceData.whatsapp_participant || item.agent_details?.whatsapp_participant,
-        agent_phone: sourceData.agent_phone,
-        groupJID: sourceData.groupJID || item.agent_details?.whatsapp_remote_jid,
-        evolution_instance_id: sourceData.evolution_instance_id || item.agent_details?.evolution_instance_id,
-        updated_at: item.updated_at || item.created_at
+        kind: jsonData.kind || 'unknown',
+        transaction_type: jsonData.transaction_type || 'sale',
+        bedrooms: ensureNumericArray(jsonData.bedrooms),
+        property_type: ensureArray(jsonData.property_type),
+        communities: ensureArray(jsonData.communities || jsonData.community),
+        price_aed: jsonData.price_aed ? parseFloat(String(jsonData.price_aed)) : null,
+        budget_max_aed: jsonData.budget_max_aed ? parseFloat(String(jsonData.budget_max_aed)) : null,
+        budget_min_aed: jsonData.budget_min_aed ? parseFloat(String(jsonData.budget_min_aed)) : null,
+        area_sqft: jsonData.area_sqft ? parseFloat(String(jsonData.area_sqft)) : null,
+        message_body_raw: jsonData.message_body_raw || `${jsonData.kind || 'Property'} inquiry`,
+        furnishing: jsonData.furnishing,
+        is_urgent: jsonData.is_urgent || false,
+        is_agent_covered: jsonData.is_agent_covered !== false, // Default to true
+        bathrooms: ensureNumericArray(jsonData.bathrooms),
+        location_raw: jsonData.location_raw,
+        other_details: jsonData.other_details,
+        has_maid_bedroom: jsonData.has_maid_bedroom,
+        is_direct: jsonData.is_direct || false,
+        mortgage_or_cash: jsonData.mortgage_or_cash,
+        is_distressed_deal: jsonData.is_distressed_deal || false,
+        is_off_plan: jsonData.is_off_plan || false,
+        is_mortgage_approved: jsonData.is_mortgage_approved,
+        is_community_agnostic: jsonData.is_community_agnostic,
+        developers: ensureArray(jsonData.developers),
+        whatsapp_participant: jsonData.whatsapp_participant,
+        agent_phone: jsonData.agent_phone,
+        groupJID: jsonData.groupJID,
+        evolution_instance_id: jsonData.evolution_instance_id,
+        updated_at: item.updated_at
       };
     });
 
@@ -328,7 +221,37 @@ export async function querySupabasePropertiesDirect(filters: SearchFilters): Pro
     return transformedData;
 
   } catch (error) {
-    console.error('Query failed:', error);
+    console.error('Error querying Supabase:', error);
+    return [];
+  }
+}
+
+// Direct query function for testing SQL queries
+export async function querySupabasePropertiesDirect(filters: SearchFilters): Promise<any[]> {
+  if (!supabase) {
+    console.log('Supabase not configured, returning empty array');
+    return [];
+  }
+
+  try {
+    console.log('Direct query to inventory_unit_preference table, filters:', filters);
+
+    // Simple direct query to test table access
+    const { data, error } = await supabase
+      .from('inventory_unit_preference')
+      .select('*')
+      .limit(10);
+
+    if (error) {
+      console.error('Direct query error:', error);
+      return [];
+    }
+
+    console.log(`Direct query returned ${data?.length || 0} records`);
+    return data || [];
+
+  } catch (error) {
+    console.error('Error in direct query:', error);
     return [];
   }
 }
