@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { SearchFiltersComponent } from "@/components/search-filters";
 import { PropertyCard } from "@/components/property-card";
+import { SupabasePropertyCard } from "@/components/supabase-property-card";
 import { FloatingActionButton } from "@/components/floating-action-button";
 import { InquiryModal } from "@/components/inquiry-modal";
 import { Button } from "@/components/ui/button";
@@ -244,16 +245,29 @@ export default function Home() {
                   </div>
                 ) : properties.length > 0 ? (
                   <div className="space-y-4">
-                    {properties.map((property: Property) => (
-                      <PropertyCard
-                        key={property.id}
-                        property={property}
-                        isSelected={selectedPropertyIds.includes(property.id.toString())}
-                        onSelectionChange={(selected) => 
-                          handlePropertySelection(property.id.toString(), selected)
-                        }
-                      />
-                    ))}
+                    {isDummyMode ? (
+                      properties.map((property: Property) => (
+                        <PropertyCard
+                          key={property.id}
+                          property={property}
+                          isSelected={selectedPropertyIds.includes(property.id?.toString() || '')}
+                          onSelectionChange={(selected) => 
+                            handlePropertySelection(property.id?.toString() || String(property.pk), selected)
+                          }
+                        />
+                      ))
+                    ) : (
+                      (properties as SupabaseProperty[]).map((property: SupabaseProperty) => (
+                        <SupabasePropertyCard
+                          key={property.id || property.pk}
+                          property={property}
+                          isSelected={selectedPropertyIds.includes(property.id || String(property.pk))}
+                          onSelectionChange={(selected) => 
+                            handlePropertySelection(property.id || String(property.pk), selected)
+                          }
+                        />
+                      ))
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-16">
