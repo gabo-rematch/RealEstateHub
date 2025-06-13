@@ -6,6 +6,7 @@ import { SupabasePropertyCard } from "@/components/supabase-property-card";
 import { FloatingActionButton } from "@/components/floating-action-button";
 import { InquiryModal } from "@/components/inquiry-modal";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchFilters, SupabaseProperty } from "@/types/property";
 import { Building, RotateCcw, Search } from "lucide-react";
@@ -48,6 +49,7 @@ export default function Home() {
       if (filters.area_sqft_max) queryParams.append('area_sqft_max', filters.area_sqft_max.toString());
       if (filters.is_off_plan !== undefined) queryParams.append('is_off_plan', filters.is_off_plan.toString());
       if (filters.is_distressed_deal !== undefined) queryParams.append('is_distressed_deal', filters.is_distressed_deal.toString());
+      if (filters.keyword_search) queryParams.append('keyword_search', filters.keyword_search);
       
       queryParams.append('page', currentPage.toString());
       queryParams.append('pageSize', '50');
@@ -197,6 +199,36 @@ export default function Home() {
           <div className="lg:col-span-8 xl:col-span-9 mt-6 lg:mt-0">
             {hasSearched ? (
               <>
+                {/* Keyword Search Bar */}
+                <div className="mb-6">
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                    <div className="flex items-center space-x-3">
+                      <Search className="h-5 w-5 text-gray-400" />
+                      <Input
+                        type="text"
+                        placeholder="Search property descriptions, keywords, details..."
+                        value={filters.keyword_search || ""}
+                        onChange={(e) => setFilters(prev => ({ ...prev, keyword_search: e.target.value }))}
+                        className="flex-1"
+                      />
+                      {filters.keyword_search && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setFilters(prev => ({ ...prev, keyword_search: "" }))}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                    {filters.keyword_search && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        Searching in property descriptions and details
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 <div className="mb-6">
                   <div className="flex items-center justify-between">
                     <div>

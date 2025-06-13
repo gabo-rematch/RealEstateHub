@@ -22,6 +22,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         area_sqft_max,
         is_off_plan,
         is_distressed_deal,
+        keyword_search,
         page = 0,
         pageSize = 50
       } = req.query;
@@ -110,6 +111,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (is_distressed_deal !== undefined) {
         query += ` AND (data->>'is_distressed_deal')::boolean = $${paramIndex}`;
         params.push(is_distressed_deal === 'true');
+        paramIndex++;
+      }
+
+      if (keyword_search && keyword_search !== '') {
+        query += ` AND LOWER(data->>'message_body_raw') LIKE LOWER($${paramIndex})`;
+        params.push(`%${keyword_search as string}%`);
         paramIndex++;
       }
 

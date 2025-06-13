@@ -11,6 +11,7 @@ export interface SearchFilters {
   communities?: string[];
   is_off_plan?: boolean;
   is_distressed_deal?: boolean;
+  keyword_search?: string; // for searching message_body_raw
 }
 
 export interface SupabaseProperty {
