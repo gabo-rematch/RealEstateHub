@@ -9,12 +9,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API route for querying properties
   app.get("/api/properties", async (req, res) => {
     try {
+      console.log('Query parameters received:', req.query);
+      
       const {
         unit_kind,
         transaction_type,
-        bedrooms,
-        communities,
-        property_type,
         budget_min,
         budget_max,
         price_aed,
@@ -26,6 +25,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         page = 0,
         pageSize = 50
       } = req.query;
+
+      // Handle multi-select parameters properly
+      const bedrooms = req.query.bedrooms ? 
+        (Array.isArray(req.query.bedrooms) ? req.query.bedrooms : [req.query.bedrooms]) : [];
+      const communities = req.query.communities ? 
+        (Array.isArray(req.query.communities) ? req.query.communities : [req.query.communities]) : [];
+      const property_type = req.query.property_type ? 
+        (Array.isArray(req.query.property_type) ? req.query.property_type : [req.query.property_type]) : [];
+
+      console.log('Processed filter parameters:', { bedrooms, communities, property_type, unit_kind, transaction_type });
 
       let query = `
         SELECT 
