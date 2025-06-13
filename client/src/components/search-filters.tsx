@@ -106,6 +106,16 @@ function SearchableMultiSelect({ values, onValuesChange, options, placeholder, s
     ? values[0] 
     : `${values.length} selected`;
 
+  // Sort options: selected items first, then remaining options alphabetically
+  const sortedOptions = [...options].sort((a, b) => {
+    const aSelected = values.includes(a);
+    const bSelected = values.includes(b);
+    
+    if (aSelected && !bSelected) return -1;
+    if (!aSelected && bSelected) return 1;
+    return a.localeCompare(b);
+  });
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -125,7 +135,7 @@ function SearchableMultiSelect({ values, onValuesChange, options, placeholder, s
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
+              {sortedOptions.map((option) => (
                 <CommandItem
                   key={option}
                   value={option}
