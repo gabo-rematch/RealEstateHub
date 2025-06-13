@@ -121,8 +121,8 @@ export function InquiryModal({ isOpen, onClose, selectedPropertyIds, searchFilte
     return [
       { label: "Unit Kind", value: filters.unit_kind },
       { label: "Transaction", value: filters.transaction_type },
-      { label: "Bedrooms", value: filters.beds },
-      { label: "Community", value: filters.community },
+      { label: "Bedrooms", value: filters.bedrooms?.join(', ') || 'Any' },
+      { label: "Communities", value: filters.communities?.join(', ') || 'Any' },
       { label: "Property Type", value: filters.property_type },
     ].filter(item => item.value);
   };

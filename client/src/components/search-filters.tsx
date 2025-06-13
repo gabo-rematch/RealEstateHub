@@ -81,7 +81,7 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                       <Label htmlFor="property-type" className="block text-sm font-medium text-gray-700 mb-2">
                         Property Type
                       </Label>
-                      <Select value={filters.property_type || "any"} onValueChange={(value) => updateFilter('property_type', value === "any" ? undefined : value)}>
+                      <Select value={filters.property_type?.[0] || "any"} onValueChange={(value) => updateFilter('property_type', value === "any" ? undefined : [value])}>
                         <SelectTrigger>
                           <SelectValue placeholder="Any property type" />
                         </SelectTrigger>
@@ -97,7 +97,7 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                       <Label htmlFor="beds" className="block text-sm font-medium text-gray-700 mb-2">
                         Bedrooms
                       </Label>
-                      <Select value={filters.beds || "any"} onValueChange={(value) => updateFilter('beds', value === "any" ? undefined : value)}>
+                      <Select value={filters.bedrooms?.[0] || "any"} onValueChange={(value) => updateFilter('bedrooms', value === "any" ? undefined : [value])}>
                         <SelectTrigger>
                           <SelectValue placeholder="Any bedrooms" />
                         </SelectTrigger>

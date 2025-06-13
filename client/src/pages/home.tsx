@@ -1,16 +1,15 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { SearchFiltersComponent } from "@/components/search-filters";
-import { PropertyCard } from "@/components/property-card";
+
 import { SupabasePropertyCard } from "@/components/supabase-property-card";
 import { FloatingActionButton } from "@/components/floating-action-button";
 import { InquiryModal } from "@/components/inquiry-modal";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchFilters } from "@/types/property";
-import { Property } from "@shared/schema";
 import { supabase, isDummyMode } from "@/lib/supabase";
-import { filterDummyProperties } from "@/lib/dummyData";
+
 import { querySupabaseProperties, testTableAccess, getSampleRecords, debugQueryApproaches, SupabaseProperty } from "@/lib/supabaseQuery";
 import { Building, RotateCcw, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
