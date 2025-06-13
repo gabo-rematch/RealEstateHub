@@ -207,31 +207,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ORDER BY value
       `);
 
-      // Get unique property types
+      // Get unique property types (stored as strings)
       const propertyTypesResult = await queryDatabase(`
-        SELECT DISTINCT jsonb_array_elements_text(data->'property_type') as value
+        SELECT DISTINCT data->>'property_type' as value
         FROM inventory_unit_preference 
-        WHERE data->'property_type' IS NOT NULL 
-        AND jsonb_array_length(data->'property_type') > 0
+        WHERE data->>'property_type' IS NOT NULL 
+        AND data->>'property_type' != ''
         ORDER BY value
       `);
 
-      // Get unique bedroom counts
+      // Get unique bedroom counts (stored as numbers)
       const bedroomsResult = await queryDatabase(`
-        SELECT DISTINCT jsonb_array_elements(data->'bedrooms')::int as value
+        SELECT DISTINCT (data->>'bedrooms')::int as value
         FROM inventory_unit_preference 
-        WHERE data->'bedrooms' IS NOT NULL 
-        AND jsonb_array_length(data->'bedrooms') > 0
-        AND jsonb_array_elements(data->'bedrooms')::text ~ '^[0-9]+$'
+        WHERE data->>'bedrooms' IS NOT NULL 
+        AND data->>'bedrooms' ~ '^[0-9]+$'
         ORDER BY value
       `);
 
-      // Get unique communities
+      // Get unique communities (check both string and array formats)
       const communitiesResult = await queryDatabase(`
-        SELECT DISTINCT jsonb_array_elements_text(data->'communities') as value
+        SELECT DISTINCT 
+          CASE 
+            WHEN jsonb_typeof(data->'communities') = 'array' THEN 
+              jsonb_array_elements_text(data->'communities')
+            WHEN jsonb_typeof(data->'communities') = 'string' THEN 
+              data->>'communities'
+            ELSE NULL
+          END as value
         FROM inventory_unit_preference 
         WHERE data->'communities' IS NOT NULL 
-        AND jsonb_array_length(data->'communities') > 0
+        AND (
+          (jsonb_typeof(data->'communities') = 'array' AND jsonb_array_length(data->'communities') > 0) OR
+          (jsonb_typeof(data->'communities') = 'string' AND data->>'communities' != '')
+        )
         ORDER BY value
         LIMIT 200
       `);

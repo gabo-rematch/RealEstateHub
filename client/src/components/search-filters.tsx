@@ -106,7 +106,7 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="any">Any property type</SelectItem>
-                          {filterOptions.property_types?.map((type: string) => (
+                          {filterOptions.propertyTypes?.map((type: string) => (
                             <SelectItem key={type} value={type}>
                               {type.charAt(0).toUpperCase() + type.slice(1)}
                             </SelectItem>
@@ -125,11 +125,9 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="any">Any bedrooms</SelectItem>
-                          {filterOptions.bedrooms?.map((bedroom: string) => (
-                            <SelectItem key={bedroom} value={bedroom}>
-                              {bedroom === "studio" ? "Studio" : 
-                               bedroom.includes("+") ? `${bedroom} Bedrooms` : 
-                               `${bedroom} Bedroom${bedroom !== "1" ? "s" : ""}`}
+                          {filterOptions.bedrooms?.map((bedroom: number) => (
+                            <SelectItem key={bedroom} value={bedroom.toString()}>
+                              {bedroom === 0 ? "Studio" : `${bedroom} Bedroom${bedroom !== 1 ? "s" : ""}`}
                             </SelectItem>
                           ))}
                         </SelectContent>
