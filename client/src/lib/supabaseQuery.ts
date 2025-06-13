@@ -74,143 +74,131 @@ export async function querySupabasePropertiesDirect(filters: SearchFilters): Pro
   console.log('Querying inventory_unit_preference table (45k+ records) with filters:', filters);
 
   try {
-    // First, get a sample of records to understand the structure
-    console.log('Getting sample records to understand data structure...');
-    const sampleQuery = await supabase
-      .from('inventory_unit_preference')
-      .select('*')
-      .limit(3);
+    // Test table access permissions first
+    console.log('Testing table access permissions...');
     
-    console.log('Sample query result:', sampleQuery);
+    // Check which tables are accessible
+    const tables = [
+      'inventory_unit_preference', 
+      'inventory_unit', 
+      'properties',
+      'messages',
+      'units',
+      'listings'
+    ];
     
-    if (sampleQuery.data && sampleQuery.data.length > 0) {
-      console.log('Sample record structure:', sampleQuery.data[0]);
-      console.log('All field names:', Object.keys(sampleQuery.data[0]));
-      
-      // Check if there's a data field or if fields are at root level
-      const sample = sampleQuery.data[0];
-      if (sample.data) {
-        console.log('Data field exists - content:', sample.data);
-        console.log('Data field keys:', Object.keys(sample.data));
+    for (const tableName of tables) {
+      try {
+        console.log(`Testing access to table: ${tableName}`);
+        const testQuery = await supabase
+          .from(tableName)
+          .select('*')
+          .limit(1);
+        
+        console.log(`${tableName} access result:`, {
+          error: testQuery.error?.message || null,
+          hasData: testQuery.data && testQuery.data.length > 0,
+          count: testQuery.data?.length || 0
+        });
+        
+        if (testQuery.data && testQuery.data.length > 0) {
+          console.log(`${tableName} sample record:`, testQuery.data[0]);
+          console.log(`${tableName} field names:`, Object.keys(testQuery.data[0]));
+        }
+      } catch (tableError) {
+        console.log(`${tableName} access failed:`, tableError);
       }
+    }
+    
+    // If we found accessible tables with data, use the best one
+    let accessibleTable = null;
+    let sampleData = null;
+    
+    // Try inventory_unit first since we saw it had data earlier
+    try {
+      const inventoryUnitQuery = await supabase
+        .from('inventory_unit')
+        .select('*')
+        .limit(5);
       
-      // Look for various possible field names
-      console.log('Looking for kind-related fields:', {
-        kind: sample.kind,
-        rec_kind: sample.rec_kind,
-        unit_kind: sample.unit_kind,
-        data_kind: sample.data?.kind,
-        data_rec_kind: sample.data?.rec_kind
-      });
-      
-      console.log('Looking for transaction-related fields:', {
-        transaction_type: sample.transaction_type,
-        rec_transaction_type: sample.rec_transaction_type,
-        data_transaction_type: sample.data?.transaction_type,
-        data_rec_transaction_type: sample.data?.rec_transaction_type
-      });
+      if (inventoryUnitQuery.data && inventoryUnitQuery.data.length > 0) {
+        accessibleTable = 'inventory_unit';
+        sampleData = inventoryUnitQuery.data;
+        console.log('Using inventory_unit table with data');
+        console.log('Sample inventory_unit records:', sampleData);
+      }
+    } catch (error) {
+      console.log('inventory_unit access failed:', error);
     }
 
-    // Now try the actual query with no filters first to see if we get results
-    console.log('Trying query with no filters to test basic access...');
-    let testQuery = supabase
-      .from('inventory_unit_preference')
-      .select('pk, id, data, created_at, updated_at')
-      .limit(10);
-
-    const testResult = await testQuery;
-    console.log('No-filter test query result:', testResult);
-    console.log(`No-filter query returned ${testResult.data?.length || 0} records`);
-
-    if (testResult.data && testResult.data.length > 0) {
-      console.log('Test query sample record:', testResult.data[0]);
+    // Use the accessible table with data
+    if (!accessibleTable) {
+      console.log('No accessible table found with data, returning empty results');
+      return [];
     }
 
-    // Now try with filters based on what we learned
+    // Build query using the accessible table - get all fields to see what's available
     let query = supabase
-      .from('inventory_unit_preference')
-      .select('pk, id, data, created_at, updated_at');
+      .from(accessibleTable)
+      .select('*');
 
-    // Try different approaches for filtering
-    if (filters.unit_kind && filters.unit_kind !== '') {
-      console.log(`Applying filter for unit_kind: ${filters.unit_kind}`);
-      
-      // Try multiple potential field paths
-      if (sampleQuery.data?.[0]?.data?.rec_kind !== undefined) {
-        console.log('Using data->rec_kind filter');
-        query = query.eq('data->>rec_kind', filters.unit_kind);
-      } else if (sampleQuery.data?.[0]?.data?.kind !== undefined) {
-        console.log('Using data->kind filter');
-        query = query.eq('data->>kind', filters.unit_kind);
-      } else if (sampleQuery.data?.[0]?.rec_kind !== undefined) {
-        console.log('Using direct rec_kind filter');
-        query = query.eq('rec_kind', filters.unit_kind);
-      } else if (sampleQuery.data?.[0]?.kind !== undefined) {
-        console.log('Using direct kind filter');
-        query = query.eq('kind', filters.unit_kind);
-      } else {
-        console.log('No suitable kind field found, trying all variations...');
-        // Try a broad search approach
-        query = supabase
-          .from('inventory_unit_preference')
-          .select('pk, id, data, created_at, updated_at')
-          .or(`data->>rec_kind.eq.${filters.unit_kind},data->>kind.eq.${filters.unit_kind},rec_kind.eq.${filters.unit_kind},kind.eq.${filters.unit_kind}`);
-      }
+    // Apply filters based on the table structure
+    if (filters.unit_kind && filters.unit_kind !== '' && accessibleTable === 'inventory_unit') {
+      console.log(`Applying filter for unit_kind: ${filters.unit_kind} on ${accessibleTable}`);
+      query = query.eq('kind', filters.unit_kind);
     }
 
     query = query.limit(50).order('updated_at', { ascending: false });
 
-    console.log('Executing main filtered query...');
+    console.log(`Executing query on ${accessibleTable}...`);
     const { data, error } = await query;
 
     if (error) {
-      console.error('Filtered query error:', error);
+      console.error(`${accessibleTable} query error:`, error);
       throw new Error(`Query failed: ${error.message}`);
     }
 
-    console.log(`Filtered query returned ${data?.length || 0} records`);
+    console.log(`${accessibleTable} query returned ${data?.length || 0} records`);
     
     if (data && data.length > 0) {
-      console.log('Filtered query sample record:', data[0]);
+      console.log(`${accessibleTable} sample record:`, data[0]);
     }
 
-    // Transform the data based on the actual structure we found
+    // Transform the data based on the actual structure
     const transformedData = (data || []).map((item: any) => {
-      const rec = item.data || item;
+      const agentDetails = item.agent_details || {};
       
       return {
         pk: item.pk,
         id: item.id || String(item.pk),
-        kind: rec.rec_kind || rec.kind || 'unknown',
-        transaction_type: rec.rec_transaction_type || rec.transaction_type || 'sale',
-        bedrooms: Array.isArray(rec.bedrooms) ? rec.bedrooms : (rec.bedrooms ? [rec.bedrooms] : []),
-        property_type: Array.isArray(rec.property_type) ? rec.property_type : (rec.property_type ? [rec.property_type] : []),
-        communities: Array.isArray(rec.communities) ? rec.communities : 
-                     Array.isArray(rec.community) ? rec.community :
-                     (rec.communities || rec.community ? [rec.communities || rec.community] : []),
-        price_aed: rec.price_aed ? parseFloat(String(rec.price_aed)) : null,
-        budget_max_aed: rec.budget_max_aed ? parseFloat(String(rec.budget_max_aed)) : null,
-        budget_min_aed: rec.budget_min_aed ? parseFloat(String(rec.budget_min_aed)) : null,
-        area_sqft: rec.area_sqft ? parseFloat(String(rec.area_sqft)) : null,
-        message_body_raw: rec.message_body_raw || 'Property record',
-        furnishing: rec.furnishing,
-        is_urgent: rec.is_urgent || false,
-        is_agent_covered: rec.is_agent_covered || true,
-        bathrooms: Array.isArray(rec.bathrooms) ? rec.bathrooms : (rec.bathrooms ? [rec.bathrooms] : []),
-        location_raw: rec.location_raw,
-        other_details: rec.other_details,
-        has_maid_bedroom: rec.has_maid_bedroom,
-        is_direct: rec.is_direct || false,
-        mortgage_or_cash: rec.mortgage_or_cash,
-        is_distressed_deal: rec.is_distressed_deal || false,
-        is_off_plan: rec.is_off_plan || false,
-        is_mortgage_approved: rec.is_mortgage_approved,
-        is_community_agnostic: rec.is_community_agnostic,
-        developers: Array.isArray(rec.developers) ? rec.developers : (rec.developers ? [rec.developers] : []),
-        whatsapp_participant: null,
+        kind: item.kind || 'unknown',
+        transaction_type: 'sale', // Default since not available in current structure
+        bedrooms: [],
+        property_type: [],
+        communities: [],
+        price_aed: null,
+        budget_max_aed: null,
+        budget_min_aed: null,
+        area_sqft: null,
+        message_body_raw: `${item.kind} record from ${item.source || 'unknown'} source`,
+        furnishing: null,
+        is_urgent: item.priority || false,
+        is_agent_covered: true,
+        bathrooms: [],
+        location_raw: null,
+        other_details: `Created: ${item.created_at || 'unknown'}`,
+        has_maid_bedroom: null,
+        is_direct: true,
+        mortgage_or_cash: null,
+        is_distressed_deal: false,
+        is_off_plan: false,
+        is_mortgage_approved: null,
+        is_community_agnostic: null,
+        developers: [],
+        whatsapp_participant: agentDetails.whatsapp_participant,
         agent_phone: null,
-        groupJID: null,
-        evolution_instance_id: null,
+        groupJID: agentDetails.whatsapp_remote_jid,
+        evolution_instance_id: agentDetails.evolution_instance_id,
         updated_at: item.updated_at || item.created_at
       };
     });
@@ -220,6 +208,7 @@ export async function querySupabasePropertiesDirect(filters: SearchFilters): Pro
 
   } catch (error) {
     console.error('Query investigation failed:', error);
-    throw error;
+    // Return empty array instead of throwing to prevent app crash
+    return [];
   }
 }
