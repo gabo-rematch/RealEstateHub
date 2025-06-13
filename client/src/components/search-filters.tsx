@@ -5,16 +5,79 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, Search, Check, ChevronsUpDown } from "lucide-react";
 import { SearchFilters } from "@/types/property";
+import { cn } from "@/lib/utils";
 
 interface SearchFiltersProps {
   filters: SearchFilters;
   onFiltersChange: (filters: SearchFilters) => void;
   onSearch: () => void;
   isLoading: boolean;
+}
+
+// Searchable Select Component
+interface SearchableSelectProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  options: string[];
+  placeholder: string;
+  searchPlaceholder: string;
+  emptyText: string;
+}
+
+function SearchableSelect({ value, onValueChange, options, placeholder, searchPlaceholder, emptyText }: SearchableSelectProps) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+        >
+          {value
+            ? options.find((option) => option === value) || placeholder
+            : placeholder}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-full p-0">
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} />
+          <CommandList>
+            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandGroup>
+              {options.map((option) => (
+                <CommandItem
+                  key={option}
+                  value={option}
+                  onSelect={(currentValue) => {
+                    onValueChange(currentValue === value ? "" : currentValue);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === option ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {option}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isLoading }: SearchFiltersProps) {
@@ -58,18 +121,14 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                       <Label htmlFor="unit-kind" className="block text-sm font-medium text-gray-700 mb-2">
                         Kind
                       </Label>
-                      <Select value={filters.unit_kind} onValueChange={(value) => updateFilter('unit_kind', value)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select kind" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {filterOptions.kinds?.map((kind: string) => (
-                            <SelectItem key={kind} value={kind}>
-                              {kind.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={filters.unit_kind || ""}
+                        onValueChange={(value) => updateFilter('unit_kind', value)}
+                        options={filterOptions.kinds || []}
+                        placeholder="Search and select kind..."
+                        searchPlaceholder="Search kinds..."
+                        emptyText="No kinds found."
+                      />
                     </div>
                     
                     <div>
@@ -178,19 +237,14 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                       <Label htmlFor="community" className="block text-sm font-medium text-gray-700 mb-2">
                         Community
                       </Label>
-                      <Select value={filters.communities?.[0] || "any"} onValueChange={(value) => updateFilter('communities', value === "any" ? undefined : [value])}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Any community" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="any">Any community</SelectItem>
-                          {filterOptions.communities?.map((community: string) => (
-                            <SelectItem key={community} value={community}>
-                              {community}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SearchableSelect
+                        value={filters.communities?.[0] || ""}
+                        onValueChange={(value) => updateFilter('communities', value === "" ? undefined : [value])}
+                        options={filterOptions.communities || []}
+                        placeholder="Search and select community..."
+                        searchPlaceholder="Search communities..."
+                        emptyText="No communities found."
+                      />
                     </div>
                     
                     <div className="space-y-3">

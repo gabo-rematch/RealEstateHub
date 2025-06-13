@@ -285,7 +285,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                ) AS community
              ) AS x
         ORDER BY value
-        LIMIT 200
       `);
 
       const filterOptions = {
@@ -293,7 +292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transactionTypes: transactionTypesResult.map(row => row.value).filter(Boolean),
         propertyTypes: propertyTypesResult.map(row => row.value).filter(Boolean),
         bedrooms: bedroomsResult.map(row => parseInt(row.value)).filter(val => !isNaN(val) && val >= 0 && val <= 20).sort((a, b) => a - b),
-        communities: communitiesResult.map(row => row.value).filter(Boolean).slice(0, 200)
+        communities: communitiesResult.map(row => row.value).filter(Boolean)
       };
 
       res.json(filterOptions);
