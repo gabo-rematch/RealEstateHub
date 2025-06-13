@@ -10,6 +10,7 @@ import { SearchFilters } from "@/types/property";
 import { Property } from "@shared/schema";
 import { supabase, isDummyMode } from "@/lib/supabase";
 import { filterDummyProperties } from "@/lib/dummyData";
+import { querySupabasePropertiesDirect, SupabaseProperty } from "@/lib/supabaseQuery";
 import { Building, RotateCcw, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -42,10 +43,10 @@ export default function Home() {
         // Deduplicate identical units based on key properties
         const uniqueProperties = filteredProperties.reduce((acc: Property[], current: Property) => {
           const isDuplicate = acc.some(prop => 
-            prop.title === current.title &&
-            prop.unit_kind === current.unit_kind &&
-            prop.community === current.community &&
-            prop.beds === current.beds &&
+            prop.message_body_raw === current.message_body_raw &&
+            prop.kind === current.kind &&
+            prop.communities?.[0] === current.communities?.[0] &&
+            prop.bedrooms?.[0] === current.bedrooms?.[0] &&
             prop.area_sqft === current.area_sqft
           );
           
@@ -59,59 +60,16 @@ export default function Home() {
         return uniqueProperties;
       }
 
-      // Use Supabase when credentials are available
-      let query = supabase!
-        .from('properties')
-        .select('*')
-        .eq('unit_kind', filters.unit_kind)
-        .eq('transaction_type', filters.transaction_type);
-
-      // Apply optional filters
-      if (filters.property_type) {
-        query = query.eq('property_type', filters.property_type);
-      }
-      if (filters.beds) {
-        query = query.eq('beds', filters.beds);
-      }
-      if (filters.area_sqft_min) {
-        query = query.gte('area_sqft', filters.area_sqft_min);
-      }
-      if (filters.area_sqft_max) {
-        query = query.lte('area_sqft', filters.area_sqft_max);
-      }
-      if (filters.price_min) {
-        query = query.gte('price', filters.price_min);
-      }
-      if (filters.price_max) {
-        query = query.lte('price', filters.price_max);
-      }
-      if (filters.community) {
-        query = query.eq('community', filters.community);
-      }
-      if (filters.off_plan !== undefined) {
-        query = query.eq('off_plan', filters.off_plan);
-      }
-      if (filters.distressed !== undefined) {
-        query = query.eq('distressed', filters.distressed);
-      }
-
-      // Apply sorting
-      query = query.order('updated_at', { ascending: false });
-
-      const { data, error } = await query;
+      // Use real Supabase data
+      const data = await querySupabasePropertiesDirect(filters);
       
-      if (error) {
-        console.error('Supabase error:', error);
-        throw new Error(error.message);
-      }
-
       // Deduplicate identical units based on key properties
-      const uniqueProperties = data?.reduce((acc: Property[], current: Property) => {
+      const uniqueProperties = data.reduce((acc: SupabaseProperty[], current: SupabaseProperty) => {
         const isDuplicate = acc.some(prop => 
-          prop.title === current.title &&
-          prop.unit_kind === current.unit_kind &&
-          prop.community === current.community &&
-          prop.beds === current.beds &&
+          prop.message_body_raw === current.message_body_raw &&
+          prop.kind === current.kind &&
+          prop.communities?.[0] === current.communities?.[0] &&
+          prop.bedrooms?.[0] === current.bedrooms?.[0] &&
           prop.area_sqft === current.area_sqft
         );
         
@@ -120,7 +78,7 @@ export default function Home() {
         }
         
         return acc;
-      }, []) || [];
+      }, []);
 
       return uniqueProperties;
     },
