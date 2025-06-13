@@ -74,43 +74,79 @@ export async function querySupabasePropertiesDirect(filters: SearchFilters): Pro
   console.log('Querying inventory_unit_preference table with JSONB data, filters:', filters);
 
   try {
-    // First, test access to inventory_unit_preference table and examine data structure
-    console.log('Testing inventory_unit_preference table access...');
-    const sampleQuery = await supabase
-      .from('inventory_unit_preference')
-      .select('pk, id, data, inventory_unit_pk, created_at, updated_at, priority')
-      .limit(5);
+    // Check all accessible tables to find where the 45k+ records are stored
+    console.log('Checking all accessible tables for property data...');
     
-    console.log('Sample query result:', {
-      error: sampleQuery.error?.message || null,
-      count: sampleQuery.data?.length || 0
-    });
-
-    if (sampleQuery.error) {
-      console.error('Table access error:', sampleQuery.error);
-      return [];
-    }
-
-    if (sampleQuery.data && sampleQuery.data.length > 0) {
-      console.log('Sample record structure:', sampleQuery.data[0]);
-      console.log('JSONB data content:', sampleQuery.data[0].data);
-      
-      // Examine the JSONB data structure
-      const sampleData = sampleQuery.data[0].data;
-      if (sampleData) {
-        console.log('JSONB data keys:', Object.keys(sampleData));
-        console.log('Property kind field:', sampleData.rec_kind || sampleData.kind);
-        console.log('Transaction type field:', sampleData.rec_transaction_type || sampleData.transaction_type);
+    const tablesToCheck = [
+      'inventory_unit_preference',
+      'inventory_unit', 
+      'message',
+      'inventory',
+      'unit_preference',
+      'preferences',
+      'property_data'
+    ];
+    
+    let workingTable = null;
+    let sampleData = null;
+    
+    for (const tableName of tablesToCheck) {
+      try {
+        console.log(`Testing table: ${tableName}`);
+        const testQuery = await supabase
+          .from(tableName)
+          .select('*')
+          .limit(3);
+        
+        console.log(`${tableName} result:`, {
+          error: testQuery.error?.message || null,
+          count: testQuery.data?.length || 0
+        });
+        
+        if (!testQuery.error && testQuery.data && testQuery.data.length > 0) {
+          console.log(`${tableName} sample record:`, testQuery.data[0]);
+          console.log(`${tableName} fields:`, Object.keys(testQuery.data[0]));
+          
+          // Check if this table has property data
+          const sample = testQuery.data[0];
+          if (sample.data || sample.kind || sample.rec_kind || sample.property_type) {
+            workingTable = tableName;
+            sampleData = testQuery.data;
+            console.log(`Found property data in ${tableName}`);
+            break;
+          }
+        }
+      } catch (error) {
+        console.log(`${tableName} access failed:`, error);
       }
-    } else {
-      console.log('No sample data found in inventory_unit_preference');
+    }
+    
+    if (!workingTable) {
+      console.log('No accessible table found with property data');
       return [];
     }
+    
+    console.log(`Using table: ${workingTable}`);
+    
+    // Try count query to see how many records are accessible
+    try {
+      const countQuery = await supabase
+        .from(workingTable)
+        .select('*', { count: 'exact', head: true });
+      
+      console.log(`${workingTable} total count:`, countQuery.count);
+    } catch (error) {
+      console.log('Count query failed:', error);
+    }
 
-    // Build the main query
+    // Build the main query using the working table we found
     let query = supabase
-      .from('inventory_unit_preference')
-      .select('pk, id, data, inventory_unit_pk, created_at, updated_at, priority');
+      .from(workingTable)
+      .select('*');
+    
+    // Determine the data structure and apply filters accordingly
+    const hasJsonbData = sampleData && sampleData[0] && sampleData[0].data;
+    console.log('Table has JSONB data field:', hasJsonbData);
 
     // Apply filters using JSONB operators
     if (filters.unit_kind && filters.unit_kind !== '') {
