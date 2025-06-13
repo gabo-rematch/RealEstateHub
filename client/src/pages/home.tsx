@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { SearchFilters } from "@/types/property";
 import { supabase, isDummyMode } from "@/lib/supabase";
 
-import { querySupabaseProperties, testTableAccess, getSampleRecords, debugQueryApproaches, SupabaseProperty } from "@/lib/supabaseQuery";
+import { SupabaseProperty } from "@/lib/supabaseQuery";
 import { Building, RotateCcw, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -30,8 +30,37 @@ export default function Home() {
   const { data: properties = [], isLoading, error, refetch } = useQuery({
     queryKey: ['properties', filters, currentPage],
     queryFn: async () => {
-      // Use real Supabase data with pagination
-      const data = await querySupabaseProperties(filters, currentPage, 50);
+      const queryParams = new URLSearchParams();
+      
+      // Add filters to query params
+      if (filters.unit_kind) queryParams.append('unit_kind', filters.unit_kind);
+      if (filters.transaction_type) queryParams.append('transaction_type', filters.transaction_type);
+      if (filters.bedrooms?.length) {
+        filters.bedrooms.forEach(bedroom => queryParams.append('bedrooms', bedroom));
+      }
+      if (filters.communities?.length) {
+        filters.communities.forEach(community => queryParams.append('communities', community));
+      }
+      if (filters.property_type?.length) {
+        filters.property_type.forEach(type => queryParams.append('property_type', type));
+      }
+      if (filters.budget_min) queryParams.append('budget_min', filters.budget_min.toString());
+      if (filters.budget_max) queryParams.append('budget_max', filters.budget_max.toString());
+      if (filters.price_aed) queryParams.append('price_aed', filters.price_aed.toString());
+      if (filters.area_sqft_min) queryParams.append('area_sqft_min', filters.area_sqft_min.toString());
+      if (filters.area_sqft_max) queryParams.append('area_sqft_max', filters.area_sqft_max.toString());
+      if (filters.is_off_plan !== undefined) queryParams.append('is_off_plan', filters.is_off_plan.toString());
+      if (filters.is_distressed_deal !== undefined) queryParams.append('is_distressed_deal', filters.is_distressed_deal.toString());
+      
+      queryParams.append('page', currentPage.toString());
+      queryParams.append('pageSize', '50');
+
+      const response = await fetch(`/api/properties?${queryParams.toString()}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch properties');
+      }
+      
+      const data = await response.json();
       
       // Deduplicate identical units based on key properties
       const uniqueProperties = data.reduce((acc: SupabaseProperty[], current: SupabaseProperty) => {
@@ -52,7 +81,7 @@ export default function Home() {
 
       return uniqueProperties;
     },
-    enabled: true, // Always enabled, will return all data when no filters
+    enabled: true,
   });
 
   const handleSearch = () => {
@@ -64,23 +93,38 @@ export default function Home() {
   const handleDebugTable = async () => {
     console.log('Starting comprehensive table debug...');
     
-    // Test 1: Basic table access
-    const hasAccess = await testTableAccess();
-    console.log('Table access result:', hasAccess);
-    
-    // Test 2: Sample records
-    if (hasAccess) {
-      const samples = await getSampleRecords();
-      console.log('Sample records retrieved:', samples.length);
+    try {
+      // Test database connection and record count
+      const response = await fetch('/api/test-db');
+      const result = await response.json();
+      
+      console.log('Database test result:', result);
+      
+      if (result.success) {
+        console.log(`Database accessible with ${result.recordCount} total records`);
+        
+        // Test basic property query
+        const propertiesResponse = await fetch('/api/properties?page=0&pageSize=5');
+        const properties = await propertiesResponse.json();
+        
+        console.log(`Sample query returned ${properties.length} properties`);
+        if (properties.length > 0) {
+          console.log('Sample property:', properties[0]);
+        }
+      }
+      
+      toast({
+        title: "Debug Complete",
+        description: `Database has ${result.recordCount} records. Check browser console for details.`,
+      });
+    } catch (error) {
+      console.error('Debug error:', error);
+      toast({
+        title: "Debug Failed",
+        description: "Check browser console for error details",
+        variant: "destructive",
+      });
     }
-    
-    // Test 3: Different query approaches
-    await debugQueryApproaches();
-    
-    toast({
-      title: "Debug Complete",
-      description: "Check browser console for detailed logs",
-    });
   };
 
   const handlePropertySelection = (propertyId: string, selected: boolean) => {
