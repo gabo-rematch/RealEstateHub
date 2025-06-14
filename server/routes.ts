@@ -9,8 +9,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API route for querying properties
   app.get("/api/properties", async (req, res) => {
     try {
-      console.log('Query parameters received:', req.query);
-      
       const {
         unit_kind,
         transaction_type,
@@ -34,7 +32,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const property_type = req.query.property_type ? 
         (Array.isArray(req.query.property_type) ? req.query.property_type : [req.query.property_type]) : [];
 
-      console.log('Processed filter parameters:', { bedrooms, communities, property_type, unit_kind, transaction_type });
+
 
       let query = `
         SELECT 
@@ -67,13 +65,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Convert bedroom strings to numbers for database comparison
         const bedroomNumbers = bedrooms.map(b => parseInt(b.toString()));
         // Handle both scalar (listing) and array (client_request) bedroom formats
-        query += ` AND (
-          (jsonb_typeof(data->'bedrooms') = 'number' AND ROUND((data->>'bedrooms')::numeric) = ANY($${paramIndex})) OR
-          (jsonb_typeof(data->'bedrooms') = 'array' AND data->'bedrooms' ?| $${paramIndex + 1})
-        )`;
-        params.push(bedroomNumbers);
-        params.push(bedroomNumbers.map(n => n.toString()));
-        paramIndex += 2;
+        const bedroomConditions = bedroomNumbers.map(() => {
+          return `(
+            (jsonb_typeof(data->'bedrooms') = 'number' AND ROUND((data->>'bedrooms')::numeric) = $${paramIndex++}) OR
+            (jsonb_typeof(data->'bedrooms') = 'array' AND data->'bedrooms' @> $${paramIndex++})
+          )`;
+        });
+        query += ` AND (${bedroomConditions.join(' OR ')})`;
+        
+        // Add parameters for each bedroom number
+        bedroomNumbers.forEach(num => {
+          params.push(num); // For scalar comparison
+          params.push(`[${num}]`); // For array containment
+        });
       }
 
       if (communities && Array.isArray(communities) && communities.length > 0) {

@@ -271,9 +271,9 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                           });
                           updateFilter('bedrooms', convertedValues.length === 0 ? undefined : convertedValues);
                         }}
-                        options={filterOptions.bedrooms?.map((bedroom: number) => 
+                        options={[...new Set(filterOptions.bedrooms?.map((bedroom: number) => 
                           bedroom === 0 ? "Studio" : `${bedroom} Bedroom${bedroom !== 1 ? "s" : ""}`
-                        ) || []}
+                        ))].sort() || []}
                         placeholder="Search and select bedrooms..."
                         searchPlaceholder="Search bedrooms..."
                         emptyText="No bedroom options found."
