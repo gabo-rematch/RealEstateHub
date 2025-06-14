@@ -66,9 +66,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (bedrooms && Array.isArray(bedrooms) && bedrooms.length > 0) {
         // Convert bedroom strings to numbers for database comparison
         const bedroomNumbers = bedrooms.map(b => parseInt(b.toString()));
-        query += ` AND data->'bedrooms' ?| $${paramIndex}`;
+        // Handle both scalar (listing) and array (client_request) bedroom formats
+        query += ` AND (
+          (jsonb_typeof(data->'bedrooms') = 'number' AND (data->>'bedrooms')::int = ANY($${paramIndex})) OR
+          (jsonb_typeof(data->'bedrooms') = 'array' AND data->'bedrooms' ?| $${paramIndex + 1})
+        )`;
         params.push(bedroomNumbers);
-        paramIndex++;
+        params.push(bedroomNumbers.map(n => n.toString()));
+        paramIndex += 2;
       }
 
       if (communities && Array.isArray(communities) && communities.length > 0) {
