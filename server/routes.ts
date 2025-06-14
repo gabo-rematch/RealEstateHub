@@ -81,9 +81,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (communities && Array.isArray(communities) && communities.length > 0) {
-        query += ` AND data->'communities' ?| $${paramIndex}`;
-        params.push(communities);
-        paramIndex++;
+        // Handle different field names: 'community' for listings, 'communities' for client_request
+        query += ` AND (
+          (data->>'kind' = 'listing' AND data->>'community' = ANY($${paramIndex})) OR
+          (data->>'kind' = 'client_request' AND data->'communities' ?| $${paramIndex + 1})
+        )`;
+        params.push(communities); // For listing community field
+        params.push(communities); // For client_request communities field
+        paramIndex += 2;
       }
 
       if (property_type && Array.isArray(property_type) && property_type.length > 0) {
@@ -295,22 +300,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ORDER BY value
       `);
 
-      // Get unique communities
+      // Get unique communities from both 'community' (listing) and 'communities' (client_request) fields
       const communitiesResult = await queryDatabase(`
-        SELECT DISTINCT x.community AS value
-        FROM inventory_unit_preference AS t,
-             LATERAL (
-               SELECT UNNEST(
-                 CASE
-                   WHEN t.data->'communities' IS NULL THEN '{}'::text[]
-                   WHEN jsonb_typeof(t.data->'communities') = 'array' THEN (
-                     SELECT array_agg(elem)
-                     FROM jsonb_array_elements_text(t.data->'communities') AS elem
-                   )
-                   ELSE ARRAY[ t.data->>'communities' ]
-                 END
-               ) AS community
-             ) AS x
+        SELECT DISTINCT community AS value
+        FROM (
+          -- Get communities from client_request records (array field)
+          SELECT UNNEST(
+            CASE
+              WHEN t.data->'communities' IS NULL THEN '{}'::text[]
+              WHEN jsonb_typeof(t.data->'communities') = 'array' THEN (
+                SELECT array_agg(elem)
+                FROM jsonb_array_elements_text(t.data->'communities') AS elem
+              )
+              ELSE ARRAY[ t.data->>'communities' ]
+            END
+          ) AS community
+          FROM inventory_unit_preference AS t
+          WHERE t.data->>'kind' = 'client_request'
+          
+          UNION
+          
+          -- Get community from listing records (scalar field)
+          SELECT t.data->>'community' AS community
+          FROM inventory_unit_preference AS t
+          WHERE t.data->>'kind' = 'listing' AND t.data->>'community' IS NOT NULL
+        ) AS combined_communities
+        WHERE community IS NOT NULL AND community != '' AND community != 'null'
         ORDER BY value
       `);
 
