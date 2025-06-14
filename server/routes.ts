@@ -68,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const bedroomNumbers = bedrooms.map(b => parseInt(b.toString()));
         // Handle both scalar (listing) and array (client_request) bedroom formats
         query += ` AND (
-          (jsonb_typeof(data->'bedrooms') = 'number' AND (data->>'bedrooms')::int = ANY($${paramIndex})) OR
+          (jsonb_typeof(data->'bedrooms') = 'number' AND ROUND((data->>'bedrooms')::numeric) = ANY($${paramIndex})) OR
           (jsonb_typeof(data->'bedrooms') = 'array' AND data->'bedrooms' ?| $${paramIndex + 1})
         )`;
         params.push(bedroomNumbers);
