@@ -217,7 +217,14 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
     
     let title = '';
     if (bedrooms) title += bedrooms + ' ';
-    if (propertyType) title += propertyType.charAt(0).toUpperCase() + propertyType.slice(1) + ' ';
+    if (propertyType) {
+      // Properly capitalize the full property type
+      const formattedType = propertyType
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+      title += formattedType + ' ';
+    }
     if (community) title += `in ${community}`;
     
     return title || 'Property';
