@@ -44,22 +44,24 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
   }
 
   // Handle bedrooms filter (different formats for listing vs client_request)
+  // Include null values and treat 111 as null/unknown for bedrooms
   if (filters.bedrooms && filters.bedrooms.length > 0) {
     const bedroomNumbers = filters.bedrooms.map(b => parseInt(b)).filter(n => !isNaN(n));
     
     if (bedroomNumbers.length > 0) {
       if (filters.unit_kind === 'listing') {
         // For listings, bedrooms is typically a scalar value
-        query = query.in('data->>bedrooms', bedroomNumbers);
+        const scalarConditions = bedroomNumbers.map(n => `data->>bedrooms.eq.${n}`).join(',');
+        query = query.or(`${scalarConditions},data->>bedrooms.is.null,data->>bedrooms.eq.111`);
       } else if (filters.unit_kind === 'client_request') {
         // For client_request, bedrooms is an array - use contains operator
-        const orConditions = bedroomNumbers.map(n => `data->bedrooms.cs.[${n}]`).join(',');
-        query = query.or(orConditions);
+        const arrayConditions = bedroomNumbers.map(n => `data->bedrooms.cs.[${n}]`).join(',');
+        query = query.or(`${arrayConditions},data->bedrooms.is.null,data->bedrooms.cs.[111]`);
       } else {
         // When no kind is specified, handle both formats
         const scalarConditions = bedroomNumbers.map(n => `data->>bedrooms.eq.${n}`).join(',');
         const arrayConditions = bedroomNumbers.map(n => `data->bedrooms.cs.[${n}]`).join(',');
-        query = query.or(`${scalarConditions},${arrayConditions}`);
+        query = query.or(`${scalarConditions},${arrayConditions},data->>bedrooms.is.null,data->bedrooms.is.null,data->>bedrooms.eq.111,data->bedrooms.cs.[111]`);
       }
     }
   }
@@ -95,37 +97,44 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
   }
 
   // Handle budget filters (for listings with price_aed)
-  if (filters.budget_min && !filters.price_aed) {
-    query = query.gte('data->>price_aed', filters.budget_min.toString());
-  }
-
-  if (filters.budget_max && !filters.price_aed) {
-    query = query.lte('data->>price_aed', filters.budget_max.toString());
+  // Include null values and treat 1 as null/unknown
+  if (filters.budget_min && filters.budget_max && !filters.price_aed) {
+    // When both min and max are specified, use AND logic for the range but OR for null values
+    query = query.or(`and(data->>price_aed.gte.${filters.budget_min},data->>price_aed.lte.${filters.budget_max}),data->>price_aed.is.null,data->>price_aed.eq.1`);
+  } else if (filters.budget_min && !filters.price_aed) {
+    query = query.or(`data->>price_aed.gte.${filters.budget_min},data->>price_aed.is.null,data->>price_aed.eq.1`);
+  } else if (filters.budget_max && !filters.price_aed) {
+    query = query.or(`data->>price_aed.lte.${filters.budget_max},data->>price_aed.is.null,data->>price_aed.eq.1`);
   }
 
   // Handle client budget requests (when searching for client requests by price range)
+  // Include null values and treat 1 as null/unknown
   if (filters.price_aed) {
-    query = query
-      .lte('data->>budget_min_aed', filters.price_aed.toString())
-      .gte('data->>budget_max_aed', filters.price_aed.toString());
+    query = query.or(`and(data->>budget_min_aed.lte.${filters.price_aed},data->>budget_max_aed.gte.${filters.price_aed}),data->>budget_min_aed.is.null,data->>budget_max_aed.is.null,data->>budget_min_aed.eq.1,data->>budget_max_aed.eq.1`);
   }
 
   // Handle area filters
-  if (filters.area_sqft_min) {
-    query = query.gte('data->>area_sqft', filters.area_sqft_min.toString());
+  // Include null values and treat 111 as null/unknown for area
+  if (filters.area_sqft_min && filters.area_sqft_max) {
+    // When both min and max are specified, use AND logic for the range but OR for null values
+    query = query.or(`and(data->>area_sqft.gte.${filters.area_sqft_min},data->>area_sqft.lte.${filters.area_sqft_max}),data->>area_sqft.is.null,data->>area_sqft.eq.111`);
+  } else if (filters.area_sqft_min) {
+    query = query.or(`data->>area_sqft.gte.${filters.area_sqft_min},data->>area_sqft.is.null,data->>area_sqft.eq.111`);
+  } else if (filters.area_sqft_max) {
+    query = query.or(`data->>area_sqft.lte.${filters.area_sqft_max},data->>area_sqft.is.null,data->>area_sqft.eq.111`);
   }
 
-  if (filters.area_sqft_max) {
-    query = query.lte('data->>area_sqft', filters.area_sqft_max.toString());
+  // Handle boolean filters - when clicked (true), only show TRUE values; when not clicked, show everything else
+  if (filters.is_off_plan === true) {
+    query = query.eq('data->>is_off_plan', 'true');
+  } else if (filters.is_off_plan === false) {
+    query = query.or('data->>is_off_plan.eq.false,data->>is_off_plan.is.null');
   }
 
-  // Handle boolean filters
-  if (filters.is_off_plan !== undefined) {
-    query = query.eq('data->>is_off_plan', filters.is_off_plan.toString());
-  }
-
-  if (filters.is_distressed_deal !== undefined) {
-    query = query.eq('data->>is_distressed_deal', filters.is_distressed_deal.toString());
+  if (filters.is_distressed_deal === true) {
+    query = query.eq('data->>is_distressed_deal', 'true');
+  } else if (filters.is_distressed_deal === false) {
+    query = query.or('data->>is_distressed_deal.eq.false,data->>is_distressed_deal.is.null');
   }
 
   // Handle keyword search
