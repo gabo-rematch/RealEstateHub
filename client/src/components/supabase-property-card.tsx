@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { ExpandableText } from "@/components/expandable-text";
 import { SupabaseProperty } from "@/types/property";
 import { Bed, Bath, Square, MapPin, DollarSign, CheckCircle2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -88,34 +89,36 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
     return title || 'Property';
   };
 
-  // Handle mobile card tap selection
-  const handleCardClick = (e: React.MouseEvent) => {
+  // Handle selection click on specific areas
+  const handleSelectionClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    if (isMobile) {
-      onSelectionChange(!isSelected);
-    }
+    e.stopPropagation();
+    onSelectionChange(!isSelected);
   };
 
   if (isMobile) {
     return (
       <Card 
         className={cn(
-          "hover:shadow-md transition-all duration-200 cursor-pointer",
-          isSelected && "ring-2 ring-primary bg-primary/5",
-          "active:scale-[0.98]"
+          "hover:shadow-md transition-all duration-200",
+          isSelected && "ring-2 ring-primary bg-primary/5"
         )}
-        onClick={handleCardClick}
       >
         <CardContent className="p-4">
           <div className="space-y-4">
             {/* Selection indicator and badges row */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                {isSelected ? (
-                  <CheckCircle2 className="h-5 w-5 text-primary" />
-                ) : (
-                  <div className="h-5 w-5 border-2 border-gray-300 rounded-full" />
-                )}
+                <div 
+                  className="cursor-pointer touch-target p-1 -m-1"
+                  onClick={handleSelectionClick}
+                >
+                  {isSelected ? (
+                    <CheckCircle2 className="h-5 w-5 text-primary" />
+                  ) : (
+                    <div className="h-5 w-5 border-2 border-gray-300 rounded-full hover:border-primary transition-colors" />
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-1">
                   <Badge className={getTransactionBadgeColor(property.transaction_type)} variant="secondary">
                     {property.transaction_type.charAt(0).toUpperCase() + property.transaction_type.slice(1)}
@@ -191,11 +194,13 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
               </div>
             )}
 
-            {/* Description - mobile optimized */}
+            {/* Description with expandable text */}
             {property.message_body_raw && (
-              <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed">
-                {truncateDescription(property.message_body_raw, 150)}
-              </p>
+              <ExpandableText 
+                text={property.message_body_raw}
+                maxLines={3}
+                className="leading-relaxed"
+              />
             )}
 
             {/* Footer */}
