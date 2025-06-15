@@ -243,18 +243,13 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
     
     let title = '';
     
-    // Add bedrooms with specific conditions
-    if (validBedrooms.length > 0 && propertyType) {
+    // Add bedrooms if they exist (not null/undefined)
+    if (validBedrooms.length > 0) {
       const bedCount = validBedrooms[0];
-      const normalizedPropertyType = propertyType.toLowerCase().trim();
-      
-      // Only show bedrooms for apartment, villa, or townhouse
-      if (['apartment', 'villa', 'townhouse'].includes(normalizedPropertyType)) {
-        if (bedCount === 0) {
-          title += 'Studio ';
-        } else {
-          title += `${bedCount}BR `;
-        }
+      if (bedCount === 0) {
+        title += 'Studio ';
+      } else {
+        title += `${bedCount}BR `;
       }
     }
     
