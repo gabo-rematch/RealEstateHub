@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { queryDatabase, testConnection } from "./database";
+import { queryPropertiesWithSupabase, getFilterOptionsWithSupabase } from "./supabase-query-builder";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Test database connection on startup
@@ -31,6 +32,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         (Array.isArray(req.query.communities) ? req.query.communities : [req.query.communities]) : [];
       const property_type = req.query.property_type ? 
         (Array.isArray(req.query.property_type) ? req.query.property_type : [req.query.property_type]) : [];
+
+      // Check if we should use Supabase query builder
+      const useSupabase = !process.env.DATABASE_URL && process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY;
+      
+      if (useSupabase) {
+        // Use dedicated Supabase query builder for better filtering
+        const results = await queryPropertiesWithSupabase({
+          unit_kind: unit_kind as string,
+          transaction_type: transaction_type as string,
+          bedrooms: bedrooms as string[],
+          communities: communities as string[],
+          property_type: property_type as string[],
+          budget_min: budget_min ? parseInt(budget_min as string) : undefined,
+          budget_max: budget_max ? parseInt(budget_max as string) : undefined,
+          price_aed: price_aed ? parseInt(price_aed as string) : undefined,
+          area_sqft_min: area_sqft_min ? parseInt(area_sqft_min as string) : undefined,
+          area_sqft_max: area_sqft_max ? parseInt(area_sqft_max as string) : undefined,
+          is_off_plan: is_off_plan ? is_off_plan === 'true' : undefined,
+          is_distressed_deal: is_distressed_deal ? is_distressed_deal === 'true' : undefined,
+          keyword_search: keyword_search as string,
+          page: parseInt(page as string),
+          pageSize: parseInt(pageSize as string)
+        });
+
+        // Transform Supabase results to match expected format
+        const transformedResults = results.map((row: any) => ({
+          pk: row.pk,
+          id: row.id,
+          kind: row.data?.kind,
+          transaction_type: row.data?.transaction_type,
+          bedrooms: row.data?.bedrooms || [],
+          property_type: row.data?.property_type || [],
+          communities: row.data?.communities || [row.data?.community].filter(Boolean),
+          price_aed: row.data?.price_aed,
+          budget_max_aed: row.data?.budget_max_aed,
+          budget_min_aed: row.data?.budget_min_aed,
+          area_sqft: row.data?.area_sqft,
+          message_body_raw: row.data?.message_body_raw,
+          furnishing: row.data?.furnishing,
+          is_urgent: row.data?.is_urgent,
+          is_agent_covered: row.data?.is_agent_covered,
+          bathrooms: row.data?.bathrooms || [],
+          location_raw: row.data?.location_raw,
+          other_details: row.data?.other_details,
+          has_maid_bedroom: row.data?.has_maid_bedroom,
+          is_direct: row.data?.is_direct,
+          mortgage_or_cash: row.data?.mortgage_or_cash,
+          is_distressed_deal: row.data?.is_distressed_deal,
+          is_off_plan: row.data?.is_off_plan,
+          is_mortgage_approved: row.data?.is_mortgage_approved,
+          is_community_agnostic: row.data?.is_community_agnostic,
+          developers: row.data?.developers || [],
+          whatsapp_participant: row.data?.whatsapp_participant,
+          agent_phone: row.data?.agent_phone,
+          groupJID: row.data?.groupJID,
+          evolution_instance_id: row.data?.evolution_instance_id,
+          updated_at: row.updated_at
+        }));
+
+        console.log(`Query returned ${transformedResults.length} properties`);
+        res.json(transformedResults);
+        return;
+      }
 
 
 
@@ -223,6 +287,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get unique filter values for dropdowns
   app.get("/api/filter-options", async (req, res) => {
     try {
+      // Check if we should use Supabase query builder
+      const useSupabase = !process.env.DATABASE_URL && process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY;
+      
+      if (useSupabase) {
+        const filterOptions = await getFilterOptionsWithSupabase();
+        res.json({
+          kinds: filterOptions.kinds,
+          transactionTypes: filterOptions.transactionTypes,
+          propertyTypes: filterOptions.propertyTypes,
+          bedrooms: filterOptions.bedrooms,
+          communities: filterOptions.communities
+        });
+        return;
+      }
       // Get unique kinds
       const kindsResult = await queryDatabase(`
         SELECT DISTINCT x.kind AS value

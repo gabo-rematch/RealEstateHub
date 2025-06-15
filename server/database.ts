@@ -121,8 +121,13 @@ export async function queryDatabase(query: string, params: any[] = []) {
       client.release();
     }
   } else if (supabase) {
-    // Use Supabase client
-    return await querySupabaseTable(query, params);
+    // Use Supabase client - first try RPC, then fall back to table queries
+    try {
+      return await querySupabaseRPC(query, params);
+    } catch (error) {
+      console.log('Supabase RPC failed, using table queries:', error.message);
+      return await querySupabaseTable(query, params);
+    }
   } else {
     throw new Error('No database connection configured');
   }
