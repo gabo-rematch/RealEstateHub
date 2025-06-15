@@ -1,45 +1,20 @@
-import { Pool } from 'pg';
 import { createClient } from '@supabase/supabase-js';
 
-const DATABASE_URL = null; // Temporarily disable to test Supabase connection
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
-// PostgreSQL connection for direct database access
-const pool = DATABASE_URL ? new Pool({
-  connectionString: DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-}) : null;
-
-// Supabase client for when using Supabase credentials
+// Supabase client for database access
 const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) ? 
   createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
-// Execute raw SQL queries through Supabase RPC
+// Execute raw SQL queries through Supabase RPC (fallback to table queries)
 async function querySupabaseRPC(query: string, params: any[] = []) {
   if (!supabase) {
     throw new Error('Supabase client not configured');
   }
 
-  try {
-    // Use Supabase RPC to execute raw SQL queries
-    const { data, error } = await supabase.rpc('execute_sql', {
-      query: query,
-      params: params
-    });
-
-    if (error) {
-      throw new Error(`Supabase RPC error: ${error.message}`);
-    }
-
-    return data || [];
-  } catch (rpcError) {
-    // If RPC doesn't exist, fall back to basic table queries for simple cases
-    console.log('RPC not available, falling back to basic table queries');
-    return await querySupabaseTable(query, params);
-  }
+  // RPC functions not available in basic Supabase setup, so we fall back immediately
+  throw new Error('RPC not available, using table queries');
 }
 
 // Convert PostgreSQL query to Supabase table query for basic cases
@@ -92,10 +67,10 @@ async function querySupabaseTable(query: string, params: any[] = []) {
     }
     
     // Process data to extract unique values based on the query
-    const processedData = [];
+    const processedData: any[] = [];
     if (query.includes('kind')) {
       const kinds = new Set();
-      data?.forEach(row => {
+      data?.forEach((row: any) => {
         if (row.data?.kind) kinds.add(row.data.kind);
       });
       kinds.forEach(kind => processedData.push({ value: kind }));
@@ -104,55 +79,39 @@ async function querySupabaseTable(query: string, params: any[] = []) {
     return processedData;
   }
   
-  throw new Error('Complex SQL queries require RPC functions in Supabase or direct PostgreSQL connection');
+  throw new Error('Complex SQL queries require direct Supabase query builder implementation');
 }
 
 export async function queryDatabase(query: string, params: any[] = []) {
-  // Use PostgreSQL connection if available, otherwise fall back to Supabase
-  if (pool) {
-    const client = await pool.connect();
-    try {
-      const result = await client.query(query, params);
-      return result.rows;
-    } catch (error) {
-      console.error('Database query error:', error);
-      throw error;
-    } finally {
-      client.release();
-    }
-  } else if (supabase) {
-    // Use Supabase client - first try RPC, then fall back to table queries
-    try {
-      return await querySupabaseRPC(query, params);
-    } catch (error) {
-      console.log('Supabase RPC failed, using table queries:', error.message);
-      return await querySupabaseTable(query, params);
-    }
-  } else {
-    throw new Error('No database connection configured');
+  // Use only Supabase connection
+  if (!supabase) {
+    throw new Error('Supabase connection not configured - missing SUPABASE_URL or SUPABASE_ANON_KEY');
+  }
+  
+  // Try RPC first, then fall back to table queries
+  try {
+    return await querySupabaseRPC(query, params);
+  } catch (error) {
+    console.log('Supabase RPC failed, using table queries:', (error as Error).message);
+    return await querySupabaseTable(query, params);
   }
 }
 
 export async function testConnection() {
   try {
-    if (pool) {
-      console.log('Using PostgreSQL connection');
-      const result = await queryDatabase('SELECT NOW() as current_time');
-      console.log('Database connection successful:', result[0]);
-      return true;
-    } else if (supabase) {
-      console.log('Using Supabase connection');
-      const { data, error } = await supabase.from('inventory_unit_preference').select('*').limit(1);
-      if (error) {
-        throw error;
-      }
-      console.log('Supabase connection successful, found', data?.length || 0, 'records');
-      return true;
-    } else {
-      throw new Error('No database connection configured');
+    if (!supabase) {
+      throw new Error('Supabase connection not configured - missing SUPABASE_URL or SUPABASE_ANON_KEY');
     }
+    
+    console.log('Using Supabase connection');
+    const { data, error } = await supabase.from('inventory_unit_preference').select('*').limit(1);
+    if (error) {
+      throw error;
+    }
+    console.log('Supabase connection successful, found', data?.length || 0, 'records');
+    return true;
   } catch (error) {
-    console.error('Database connection failed:', error);
+    console.error('Supabase connection failed:', error);
     return false;
   }
 }
