@@ -28,16 +28,19 @@ export function ExpandableText({ text, maxLines = 3, className }: ExpandableText
   return (
     <div className={className}>
       <div 
-        className={cn(
-          "text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words",
-          !isExpanded && needsExpansion && "line-clamp-3"
-        )}
-        style={{
-          display: !isExpanded && needsExpansion ? '-webkit-box' : 'block',
-          WebkitLineClamp: !isExpanded && needsExpansion ? maxLines : 'unset',
-          WebkitBoxOrient: 'vertical' as const,
-          overflow: !isExpanded && needsExpansion ? 'hidden' : 'visible'
-        }}
+        className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words"
+        style={
+          !isExpanded && needsExpansion 
+            ? {
+                display: '-webkit-box',
+                WebkitLineClamp: maxLines,
+                WebkitBoxOrient: 'vertical' as const,
+                overflow: 'hidden'
+              }
+            : {
+                display: 'block'
+              }
+        }
       >
         {text}
       </div>
