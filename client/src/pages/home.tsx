@@ -146,7 +146,7 @@ export default function Home() {
 
   // Check if any filters are active to show New Search FAB
   const hasActiveFilters = () => {
-    return !!(filters.unit_kind || 
+    return filters.unit_kind || 
            filters.transaction_type || 
            filters.property_type?.length || 
            filters.bedrooms?.length || 
@@ -158,7 +158,7 @@ export default function Home() {
            filters.price_aed || 
            filters.is_off_plan || 
            filters.is_distressed_deal || 
-           filters.keyword_search);
+           filters.keyword_search;
   };
 
   const handleOpenInquiry = () => {

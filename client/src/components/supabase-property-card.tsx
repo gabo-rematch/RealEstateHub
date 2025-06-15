@@ -1,7 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ExpandableText } from "@/components/expandable-text";
 import { SupabaseProperty } from "@/types/property";
 import { Bed, Bath, Square, MapPin, DollarSign, CheckCircle2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -283,11 +282,9 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
                 </div>
                 
                 {property.message_body_raw && (
-                  <ExpandableText 
-                    text={property.message_body_raw}
-                    maxLines={3}
-                    className="mb-3"
-                  />
+                  <p className="text-sm text-gray-600 line-clamp-2">
+                    {truncateDescription(property.message_body_raw)}
+                  </p>
                 )}
                 
                 {property.other_details && (
