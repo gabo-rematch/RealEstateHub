@@ -217,13 +217,20 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
   };
 
   const getTitle = () => {
-    // Generate title: xBR (Studio if x = 0) + property_type + "in" + communities
+    // Title format: "[bedrooms]BR [property_type] in [communities]"
     const validBedrooms = property.bedrooms && Array.isArray(property.bedrooms) 
       ? property.bedrooms.filter(bed => bed !== null && bed !== undefined && bed !== 111 && typeof bed === 'number')
       : [];
     
     const validCommunities = property.communities && Array.isArray(property.communities)
-      ? property.communities.filter(community => community && community.trim() !== '')
+      ? property.communities.filter(community => 
+          community && 
+          community !== null && 
+          community !== undefined && 
+          typeof community === 'string' && 
+          community.trim() !== '' && 
+          community.toLowerCase() !== 'null'
+        )
       : [];
     
     // Handle property type - it might be a string or array
@@ -236,13 +243,18 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
     
     let title = '';
     
-    // Add bedrooms only if valid
-    if (validBedrooms.length > 0) {
+    // Add bedrooms with specific conditions
+    if (validBedrooms.length > 0 && propertyType) {
       const bedCount = validBedrooms[0];
-      if (bedCount === 0) {
-        title += 'Studio ';
-      } else {
-        title += `${bedCount}BR `;
+      const normalizedPropertyType = propertyType.toLowerCase().trim();
+      
+      // Only show bedrooms for apartment, villa, or townhouse
+      if (['apartment', 'villa', 'townhouse'].includes(normalizedPropertyType)) {
+        if (bedCount === 0) {
+          title += 'Studio ';
+        } else {
+          title += `${bedCount}BR `;
+        }
       }
     }
     
@@ -253,17 +265,13 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
         .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
         .join(' ');
       title += formattedType;
-      
-      // Add "in" before community if both property type and community exist
-      if (validCommunities.length > 0) {
-        title += ' in ';
-      } else {
-        title += ' ';
-      }
     }
     
-    // Add community only if valid
+    // Add community with "in" only if valid
     if (validCommunities.length > 0) {
+      if (title.trim()) {
+        title += ' in ';
+      }
       title += validCommunities[0];
     }
     
