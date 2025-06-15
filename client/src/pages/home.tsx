@@ -217,7 +217,7 @@ export default function Home() {
 
   // Get selected properties for FAB
   const selectedProperties = selectedPropertyIds.map(id => {
-    const property = properties.find(p => p.id === id || p.pk.toString() === id);
+    const property = properties.find((p: SupabaseProperty) => p.id === id || p.pk.toString() === id);
     return property ? {
       id: property.id || property.pk.toString(),
       title: `${property.property_type?.[0] || 'Property'} in ${property.communities?.[0] || 'Dubai'}${property.bedrooms?.[0] ? ` - ${property.bedrooms[0]} BR` : ''}`

@@ -440,12 +440,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ORDER BY value
       `);
 
+      // Ensure all results are arrays before processing
+      const safeKindsResult = Array.isArray(kindsResult) ? kindsResult : [];
+      const safeTransactionTypesResult = Array.isArray(transactionTypesResult) ? transactionTypesResult : [];
+      const safePropertyTypesResult = Array.isArray(propertyTypesResult) ? propertyTypesResult : [];
+      const safeBedroomsResult = Array.isArray(bedroomsResult) ? bedroomsResult : [];
+      const safeCommunitiesResult = Array.isArray(communitiesResult) ? communitiesResult : [];
+
       const filterOptions = {
-        kinds: Array.isArray(kindsResult) ? kindsResult.map((row: any) => row.value).filter(Boolean) : [],
-        transactionTypes: Array.isArray(transactionTypesResult) ? transactionTypesResult.map((row: any) => row.value).filter(Boolean) : [],
-        propertyTypes: Array.isArray(propertyTypesResult) ? propertyTypesResult.map((row: any) => row.value).filter(Boolean) : [],
-        bedrooms: Array.isArray(bedroomsResult) ? bedroomsResult.map((row: any) => parseInt(row.value)).filter((val: any) => !isNaN(val) && val >= 0 && val <= 20).sort((a: any, b: any) => a - b) : [],
-        communities: Array.isArray(communitiesResult) ? communitiesResult.map((row: any) => row.value).filter(Boolean) : []
+        kinds: safeKindsResult.map((row: any) => row.value).filter(Boolean),
+        transactionTypes: safeTransactionTypesResult.map((row: any) => row.value).filter(Boolean),
+        propertyTypes: safePropertyTypesResult.map((row: any) => row.value).filter(Boolean),
+        bedrooms: safeBedroomsResult.map((row: any) => parseInt(row.value)).filter((val: any) => !isNaN(val) && val >= 0 && val <= 20).sort((a: any, b: any) => a - b),
+        communities: safeCommunitiesResult.map((row: any) => row.value).filter(Boolean)
       };
 
       res.json(filterOptions);
@@ -459,9 +466,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/test-db", async (req, res) => {
     try {
       const result = await queryDatabase('SELECT COUNT(*) as count FROM inventory_unit_preference');
+      const safeResult = Array.isArray(result) ? result : [];
       res.json({ 
         success: true, 
-        recordCount: result[0].count,
+        recordCount: safeResult.length > 0 ? (safeResult[0] as any).count : 0,
         message: 'Database connection successful' 
       });
     } catch (error) {
