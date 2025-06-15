@@ -199,8 +199,15 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
     if (!property.communities || !Array.isArray(property.communities)) return null;
     
     const validCommunities = property.communities.filter(community => 
-      community && community.trim() !== ''
+      community && 
+      community !== null && 
+      community !== undefined && 
+      typeof community === 'string' && 
+      community.trim() !== '' && 
+      community.toLowerCase() !== 'null'
     );
+    
+    if (validCommunities.length === 0) return null;
     
     return createExpandableDisplay(
       validCommunities,
