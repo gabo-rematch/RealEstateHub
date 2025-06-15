@@ -2,7 +2,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { SupabaseProperty } from "@/types/property";
-import { Bed, Bath, Square, MapPin, DollarSign } from "lucide-react";
+import { Bed, Bath, Square, MapPin, DollarSign, CheckCircle2 } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 interface SupabasePropertyCardProps {
   property: SupabaseProperty;
