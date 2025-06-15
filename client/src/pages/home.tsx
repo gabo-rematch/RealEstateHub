@@ -194,32 +194,75 @@ export default function Home() {
     );
   }
 
+  // Get selected properties for FAB
+  const selectedProperties = selectedPropertyIds.map(id => {
+    const property = properties.find(p => p.id === id || p.pk.toString() === id);
+    return property ? {
+      id: property.id || property.pk.toString(),
+      title: `${property.property_type?.[0] || 'Property'} in ${property.communities?.[0] || 'Dubai'}${property.bedrooms?.[0] ? ` - ${property.bedrooms[0]} BR` : ''}`
+    } : null;
+  }).filter(Boolean) as { id: string; title: string }[];
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Mobile-optimized Header */}
+      <header className={cn(
+        "bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 transition-transform duration-300",
+        isMobile && !isHeaderVisible && "-translate-y-full"
+      )}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className={cn(
+            "flex items-center justify-between",
+            isMobile ? "h-14" : "h-16"
+          )}>
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Building className="text-white text-sm" />
+              <div className={cn(
+                "bg-primary rounded-lg flex items-center justify-center",
+                isMobile ? "w-6 h-6" : "w-8 h-8"
+              )}>
+                <Building className={cn(
+                  "text-white",
+                  isMobile ? "text-xs" : "text-sm"
+                )} />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900">UAE Property Portal</h1>
-                <p className="text-xs text-gray-500">
-                  Real Estate Agent Dashboard
-                </p>
+                <h1 className={cn(
+                  "font-semibold text-gray-900 dark:text-gray-100",
+                  isMobile ? "text-base" : "text-lg"
+                )}>
+                  {isMobile ? "UAE Properties" : "UAE Property Portal"}
+                </h1>
+                {!isMobile && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Real Estate Agent Dashboard
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex space-x-2">
-              <Button
-                onClick={handleNewSearch}
-                variant="outline"
-                size="sm"
-              >
-                <RotateCcw className="w-4 h-4 mr-2" />
-                New Search
-              </Button>
+              {/* Mobile refresh button */}
+              {isMobile && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefresh}
+                  className="p-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              )}
+              
+              {/* Desktop new search button */}
+              {!isMobile && (
+                <Button
+                  onClick={handleNewSearch}
+                  variant="outline"
+                  size="sm"
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  New Search
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -386,14 +429,16 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Floating Action Button */}
+      {/* Enhanced Floating Action Button with Mobile Optimization */}
       <FloatingActionButton
         selectedCount={selectedPropertyIds.length}
         onClick={handleOpenInquiry}
         isVisible={selectedPropertyIds.length > 0}
+        selectedProperties={selectedProperties}
+        onDeselectProperty={handleDeselectProperty}
       />
 
-      {/* Inquiry Modal */}
+      {/* Mobile-Optimized Inquiry Modal */}
       <InquiryModal
         isOpen={isInquiryModalOpen}
         onClose={() => setIsInquiryModalOpen(false)}
