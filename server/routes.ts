@@ -161,34 +161,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paramIndex++;
       }
 
-      if (budget_min && budget_min !== '') {
-        query += ` AND (data->>'price_aed')::numeric >= $${paramIndex}`;
-        params.push(parseFloat(budget_min as string));
-        paramIndex++;
-      }
-
-      if (budget_max && budget_max !== '') {
-        query += ` AND (data->>'price_aed')::numeric <= $${paramIndex}`;
-        params.push(parseFloat(budget_max as string));
-        paramIndex++;
-      }
-
-      if (price_aed && price_aed !== '') {
-        query += ` AND (data->>'budget_min_aed')::numeric <= $${paramIndex} AND (data->>'budget_max_aed')::numeric >= $${paramIndex}`;
-        params.push(parseFloat(price_aed as string));
-        paramIndex++;
-      }
-
+      // Handle area filters - area_sqft should be between area min and area max filters (inclusive)
+      // Include null values and treat 111 as null/unknown for area
       if (area_sqft_min && area_sqft_min !== '') {
-        query += ` AND (data->>'area_sqft')::numeric >= $${paramIndex}`;
+        query += ` AND ((data->>'area_sqft')::numeric >= $${paramIndex} OR data->>'area_sqft' IS NULL OR (data->>'area_sqft')::numeric = 111)`;
         params.push(parseFloat(area_sqft_min as string));
         paramIndex++;
       }
 
       if (area_sqft_max && area_sqft_max !== '') {
-        query += ` AND (data->>'area_sqft')::numeric <= $${paramIndex}`;
+        query += ` AND ((data->>'area_sqft')::numeric <= $${paramIndex} OR data->>'area_sqft' IS NULL OR (data->>'area_sqft')::numeric = 111)`;
         params.push(parseFloat(area_sqft_max as string));
         paramIndex++;
+      }
+
+      // Handle price filters based on property kind
+      // For kind = listing: price_aed should be between price range min and max (inclusive)
+      // For kind = client_request: listing price should be between budget_min_aed and budget_max_aed
+      if (unit_kind === 'listing') {
+        // For listings, filter by price_aed within budget_min to budget_max range
+        if (budget_min && budget_min !== '') {
+          query += ` AND ((data->>'price_aed')::numeric >= $${paramIndex} OR data->>'price_aed' IS NULL OR (data->>'price_aed')::numeric = 1)`;
+          params.push(parseFloat(budget_min as string));
+          paramIndex++;
+        }
+
+        if (budget_max && budget_max !== '') {
+          query += ` AND ((data->>'price_aed')::numeric <= $${paramIndex} OR data->>'price_aed' IS NULL OR (data->>'price_aed')::numeric = 1)`;
+          params.push(parseFloat(budget_max as string));
+          paramIndex++;
+        }
+      } else if (unit_kind === 'client_request') {
+        // For client_request, filter by price_aed (listing price) within budget_min_aed to budget_max_aed range
+        if (price_aed && price_aed !== '') {
+          query += ` AND (((data->>'budget_min_aed')::numeric <= $${paramIndex} AND (data->>'budget_max_aed')::numeric >= $${paramIndex}) OR data->>'budget_min_aed' IS NULL OR data->>'budget_max_aed' IS NULL OR (data->>'budget_min_aed')::numeric = 1 OR (data->>'budget_max_aed')::numeric = 1)`;
+          params.push(parseFloat(price_aed as string));
+          paramIndex++;
+        }
+      } else {
+        // When no kind is specified, handle both scenarios
+        if (budget_min && budget_min !== '') {
+          query += ` AND ((data->>'price_aed')::numeric >= $${paramIndex} OR data->>'price_aed' IS NULL OR (data->>'price_aed')::numeric = 1)`;
+          params.push(parseFloat(budget_min as string));
+          paramIndex++;
+        }
+
+        if (budget_max && budget_max !== '') {
+          query += ` AND ((data->>'price_aed')::numeric <= $${paramIndex} OR data->>'price_aed' IS NULL OR (data->>'price_aed')::numeric = 1)`;
+          params.push(parseFloat(budget_max as string));
+          paramIndex++;
+        }
+
+        if (price_aed && price_aed !== '') {
+          query += ` AND (((data->>'budget_min_aed')::numeric <= $${paramIndex} AND (data->>'budget_max_aed')::numeric >= $${paramIndex}) OR data->>'budget_min_aed' IS NULL OR data->>'budget_max_aed' IS NULL OR (data->>'budget_min_aed')::numeric = 1 OR (data->>'budget_max_aed')::numeric = 1)`;
+          params.push(parseFloat(price_aed as string));
+          paramIndex++;
+        }
       }
 
       if (is_off_plan !== undefined) {

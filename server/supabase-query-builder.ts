@@ -96,24 +96,7 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     }
   }
 
-  // Handle budget filters (for listings with price_aed)
-  // Include null values and treat 1 as null/unknown
-  if (filters.budget_min && filters.budget_max && !filters.price_aed) {
-    // When both min and max are specified, use AND logic for the range but OR for null values
-    query = query.or(`and(data->>price_aed.gte.${filters.budget_min},data->>price_aed.lte.${filters.budget_max}),data->>price_aed.is.null,data->>price_aed.eq.1`);
-  } else if (filters.budget_min && !filters.price_aed) {
-    query = query.or(`data->>price_aed.gte.${filters.budget_min},data->>price_aed.is.null,data->>price_aed.eq.1`);
-  } else if (filters.budget_max && !filters.price_aed) {
-    query = query.or(`data->>price_aed.lte.${filters.budget_max},data->>price_aed.is.null,data->>price_aed.eq.1`);
-  }
-
-  // Handle client budget requests (when searching for client requests by price range)
-  // Include null values and treat 1 as null/unknown
-  if (filters.price_aed) {
-    query = query.or(`and(data->>budget_min_aed.lte.${filters.price_aed},data->>budget_max_aed.gte.${filters.price_aed}),data->>budget_min_aed.is.null,data->>budget_max_aed.is.null,data->>budget_min_aed.eq.1,data->>budget_max_aed.eq.1`);
-  }
-
-  // Handle area filters
+  // Handle area filters - area_sqft should be between area min and area max filters (inclusive)
   // Include null values and treat 111 as null/unknown for area
   if (filters.area_sqft_min && filters.area_sqft_max) {
     // When both min and max are specified, use AND logic for the range but OR for null values
@@ -122,6 +105,42 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     query = query.or(`data->>area_sqft.gte.${filters.area_sqft_min},data->>area_sqft.is.null,data->>area_sqft.eq.111`);
   } else if (filters.area_sqft_max) {
     query = query.or(`data->>area_sqft.lte.${filters.area_sqft_max},data->>area_sqft.is.null,data->>area_sqft.eq.111`);
+  }
+
+  // Handle price filters based on property kind
+  // For kind = listing: price_aed should be between price range min and max (inclusive)
+  // For kind = client_request: listing price should be between budget_min_aed and budget_max_aed
+  if (filters.unit_kind === 'listing') {
+    // For listings, filter by price_aed within budget_min to budget_max range
+    if (filters.budget_min && filters.budget_max) {
+      query = query.or(`and(data->>price_aed.gte.${filters.budget_min},data->>price_aed.lte.${filters.budget_max}),data->>price_aed.is.null,data->>price_aed.eq.1`);
+    } else if (filters.budget_min) {
+      query = query.or(`data->>price_aed.gte.${filters.budget_min},data->>price_aed.is.null,data->>price_aed.eq.1`);
+    } else if (filters.budget_max) {
+      query = query.or(`data->>price_aed.lte.${filters.budget_max},data->>price_aed.is.null,data->>price_aed.eq.1`);
+    }
+  } else if (filters.unit_kind === 'client_request') {
+    // For client_request, filter by price_aed (listing price) within budget_min_aed to budget_max_aed range
+    if (filters.price_aed) {
+      query = query.or(`and(data->>budget_min_aed.lte.${filters.price_aed},data->>budget_max_aed.gte.${filters.price_aed}),data->>budget_min_aed.is.null,data->>budget_max_aed.is.null,data->>budget_min_aed.eq.1,data->>budget_max_aed.eq.1`);
+    }
+  } else {
+    // When no kind is specified, handle both scenarios
+    if (filters.budget_min || filters.budget_max) {
+      // Apply listing logic for properties that might be listings
+      if (filters.budget_min && filters.budget_max) {
+        query = query.or(`and(data->>price_aed.gte.${filters.budget_min},data->>price_aed.lte.${filters.budget_max}),data->>price_aed.is.null,data->>price_aed.eq.1`);
+      } else if (filters.budget_min) {
+        query = query.or(`data->>price_aed.gte.${filters.budget_min},data->>price_aed.is.null,data->>price_aed.eq.1`);
+      } else if (filters.budget_max) {
+        query = query.or(`data->>price_aed.lte.${filters.budget_max},data->>price_aed.is.null,data->>price_aed.eq.1`);
+      }
+    }
+    
+    if (filters.price_aed) {
+      // Apply client_request logic for properties that might be client requests
+      query = query.or(`and(data->>budget_min_aed.lte.${filters.price_aed},data->>budget_max_aed.gte.${filters.price_aed}),data->>budget_min_aed.is.null,data->>budget_max_aed.is.null,data->>budget_min_aed.eq.1,data->>budget_max_aed.eq.1`);
+    }
   }
 
   // Handle boolean filters - when clicked (true), only show TRUE values; when not clicked, show everything else
