@@ -249,6 +249,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const results = await queryDatabase(query, params);
       
+      // Ensure results is an array before processing
+      if (!Array.isArray(results)) {
+        return res.json([]);
+      }
+      
       // Transform the results to match the expected format
       const transformedResults = results.map((row: any) => {
         const jsonData = row.data || {};
@@ -436,11 +441,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `);
 
       const filterOptions = {
-        kinds: kindsResult.map(row => row.value).filter(Boolean),
-        transactionTypes: transactionTypesResult.map(row => row.value).filter(Boolean),
-        propertyTypes: propertyTypesResult.map(row => row.value).filter(Boolean),
-        bedrooms: bedroomsResult.map(row => parseInt(row.value)).filter(val => !isNaN(val) && val >= 0 && val <= 20).sort((a, b) => a - b),
-        communities: communitiesResult.map(row => row.value).filter(Boolean)
+        kinds: Array.isArray(kindsResult) ? kindsResult.map((row: any) => row.value).filter(Boolean) : [],
+        transactionTypes: Array.isArray(transactionTypesResult) ? transactionTypesResult.map((row: any) => row.value).filter(Boolean) : [],
+        propertyTypes: Array.isArray(propertyTypesResult) ? propertyTypesResult.map((row: any) => row.value).filter(Boolean) : [],
+        bedrooms: Array.isArray(bedroomsResult) ? bedroomsResult.map((row: any) => parseInt(row.value)).filter((val: any) => !isNaN(val) && val >= 0 && val <= 20).sort((a: any, b: any) => a - b) : [],
+        communities: Array.isArray(communitiesResult) ? communitiesResult.map((row: any) => row.value).filter(Boolean) : []
       };
 
       res.json(filterOptions);
