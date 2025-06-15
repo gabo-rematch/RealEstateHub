@@ -295,11 +295,12 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
                 )}
                 
                 {property.other_details && (
-                  <ExpandableText 
-                    text={property.other_details}
-                    maxLines={1}
-                    className="text-xs text-gray-500"
-                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {property.other_details.length > 80 
+                      ? property.other_details.substring(0, 80) + '...' 
+                      : property.other_details
+                    }
+                  </p>
                 )}
               </div>
               
