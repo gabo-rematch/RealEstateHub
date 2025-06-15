@@ -97,8 +97,116 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
   };
 
   const getCommunityDisplay = () => {
-    if (!property.communities || property.communities.length === 0) return null;
-    return property.communities[0];
+    if (!property.communities || !Array.isArray(property.communities) || property.communities.length === 0) return null;
+    
+    // Filter out invalid communities (undefined/null/empty)
+    const validCommunities = property.communities.filter(community => 
+      community && community.trim() !== ''
+    );
+    if (validCommunities.length === 0) return null;
+    
+    return validCommunities[0];
+  };
+
+  // Helper function to create expandable multi-value display
+  const createExpandableDisplay = (
+    values: any[], 
+    sectionKey: string, 
+    formatSingle: (value: any) => string,
+    filterValid: (value: any) => boolean = (v) => v !== null && v !== undefined
+  ) => {
+    if (!values || !Array.isArray(values)) return null;
+    
+    const validValues = values.filter(filterValid);
+    if (validValues.length === 0) return null;
+    
+    const isExpanded = expandedSections[sectionKey];
+    const shouldShowExpandToggle = validValues.length > 1 && property.kind === 'client_request';
+    
+    if (!shouldShowExpandToggle) {
+      return formatSingle(validValues[0]);
+    }
+    
+    const toggleExpansion = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setExpandedSections(prev => ({
+        ...prev,
+        [sectionKey]: !prev[sectionKey]
+      }));
+    };
+    
+    if (isExpanded) {
+      return (
+        <div className="space-y-1">
+          {validValues.map((value, index) => (
+            <div key={index}>{formatSingle(value)}</div>
+          ))}
+          <button 
+            onClick={toggleExpansion}
+            className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+          >
+            <ChevronUp className="h-3 w-3" />
+            Show less
+          </button>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="flex items-center gap-1">
+        <span>{formatSingle(validValues[0])}</span>
+        <button 
+          onClick={toggleExpansion}
+          className="text-xs text-primary hover:text-primary/80 flex items-center gap-1"
+        >
+          <span>+{validValues.length - 1} more</span>
+          <ChevronDown className="h-3 w-3" />
+        </button>
+      </div>
+    );
+  };
+
+  // Enhanced display functions for client requests with multi-values
+  const getBedroomsDisplayEnhanced = () => {
+    if (!property.bedrooms || !Array.isArray(property.bedrooms)) return null;
+    
+    const validBedrooms = property.bedrooms.filter(bed => 
+      bed !== null && bed !== undefined && bed !== 111 && typeof bed === 'number'
+    );
+    
+    return createExpandableDisplay(
+      validBedrooms,
+      'bedrooms',
+      (bedCount) => bedCount === 0 ? 'Studio' : `${bedCount} Bed${bedCount !== 1 ? 's' : ''}`
+    );
+  };
+
+  const getPropertyTypesDisplayEnhanced = () => {
+    if (!property.property_type || !Array.isArray(property.property_type)) return null;
+    
+    const validTypes = property.property_type.filter(type => 
+      type && type.trim() !== ''
+    );
+    
+    return createExpandableDisplay(
+      validTypes,
+      'property_types',
+      (type) => type.charAt(0).toUpperCase() + type.slice(1)
+    );
+  };
+
+  const getCommunitiesDisplayEnhanced = () => {
+    if (!property.communities || !Array.isArray(property.communities)) return null;
+    
+    const validCommunities = property.communities.filter(community => 
+      community && community.trim() !== ''
+    );
+    
+    return createExpandableDisplay(
+      validCommunities,
+      'communities',
+      (community) => community
+    );
   };
 
   const getTitle = () => {
@@ -155,7 +263,7 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
                 <div className="text-lg font-bold text-gray-900">
                   {getDisplayPrice()}
                 </div>
-                {property.area_sqft && property.price_aed && property.kind === 'listing' && (
+                {property.area_sqft && property.area_sqft !== 1 && property.price_aed && property.price_aed !== 1 && property.kind === 'listing' && (
                   <div className="text-xs text-gray-500">
                     {property.transaction_type === 'rent' ? 'per year' : formatPricePerSqft(property.price_aed, property.area_sqft)}
                   </div>
@@ -169,11 +277,23 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
             </h3>
 
             {/* Property details grid */}
-            <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
-              {getBedroomsDisplay() && (
-                <div className="flex items-center">
-                  <Bed className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-                  <span className="truncate">{getBedroomsDisplay()}</span>
+            <div className="grid grid-cols-1 gap-3 text-sm text-gray-600">
+              {getBedroomsDisplayEnhanced() && (
+                <div className="flex items-start">
+                  <Bed className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">{getBedroomsDisplayEnhanced()}</div>
+                </div>
+              )}
+              {getPropertyTypesDisplayEnhanced() && (
+                <div className="flex items-start">
+                  <Square className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">{getPropertyTypesDisplayEnhanced()}</div>
+                </div>
+              )}
+              {getCommunitiesDisplayEnhanced() && (
+                <div className="flex items-start">
+                  <MapPin className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">{getCommunitiesDisplayEnhanced()}</div>
                 </div>
               )}
               {getBathroomsDisplay() && (
@@ -182,16 +302,10 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
                   <span className="truncate">{getBathroomsDisplay()}</span>
                 </div>
               )}
-              {property.area_sqft && (
+              {property.area_sqft && property.area_sqft !== 1 && (
                 <div className="flex items-center">
                   <Square className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
                   <span className="truncate">{property.area_sqft.toLocaleString()} sq ft</span>
-                </div>
-              )}
-              {getCommunityDisplay() && (
-                <div className="flex items-center">
-                  <MapPin className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-                  <span className="truncate">{getCommunityDisplay()}</span>
                 </div>
               )}
             </div>
@@ -296,11 +410,23 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
                   {getTitle()}
                 </h3>
                 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm text-gray-600 mb-3">
-                  {getBedroomsDisplay() && (
-                    <div key="bedrooms" className="flex items-center">
-                      <Bed className="h-4 w-4 text-gray-400 mr-2" />
-                      <span>{getBedroomsDisplay()}</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-600 mb-3">
+                  {getBedroomsDisplayEnhanced() && (
+                    <div key="bedrooms" className="flex items-start">
+                      <Bed className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">{getBedroomsDisplayEnhanced()}</div>
+                    </div>
+                  )}
+                  {getPropertyTypesDisplayEnhanced() && (
+                    <div key="property-types" className="flex items-start">
+                      <Square className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">{getPropertyTypesDisplayEnhanced()}</div>
+                    </div>
+                  )}
+                  {getCommunitiesDisplayEnhanced() && (
+                    <div key="communities" className="flex items-start">
+                      <MapPin className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">{getCommunitiesDisplayEnhanced()}</div>
                     </div>
                   )}
                   {getBathroomsDisplay() && (
@@ -309,16 +435,10 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
                       <span>{getBathroomsDisplay()}</span>
                     </div>
                   )}
-                  {property.area_sqft && (
+                  {property.area_sqft && property.area_sqft !== 1 && (
                     <div key="area" className="flex items-center">
                       <Square className="h-4 w-4 text-gray-400 mr-2" />
                       <span>{property.area_sqft.toLocaleString()} sq ft</span>
-                    </div>
-                  )}
-                  {getCommunityDisplay() && (
-                    <div key="community" className="flex items-center">
-                      <MapPin className="h-4 w-4 text-gray-400 mr-2" />
-                      <span>{getCommunityDisplay()}</span>
                     </div>
                   )}
                 </div>
@@ -338,12 +458,12 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
                 <div className="text-2xl font-bold text-gray-900 mb-1">
                   {getDisplayPrice()}
                 </div>
-                {property.area_sqft && property.price_aed && property.kind === 'listing' && (
+                {property.area_sqft && property.area_sqft !== 1 && property.price_aed && property.price_aed !== 1 && property.kind === 'listing' && (
                   <div className="text-sm text-gray-500">
                     {property.transaction_type === 'rent' ? 'per year' : formatPricePerSqft(property.price_aed, property.area_sqft)}
                   </div>
                 )}
-                {property.furnishing && (
+                {property.furnishing && property.furnishing.trim() !== '' && property.furnishing.toLowerCase() !== 'null' && (
                   <div className="text-xs text-gray-500 mt-1">
                     {property.furnishing}
                   </div>
