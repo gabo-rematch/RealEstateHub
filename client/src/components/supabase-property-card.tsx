@@ -4,9 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ExpandableText } from "@/components/expandable-text";
 import { SupabaseProperty } from "@/types/property";
-import { Bed, Bath, Square, MapPin, DollarSign, CheckCircle2 } from "lucide-react";
+import { Bed, Bath, Square, MapPin, DollarSign, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 interface SupabasePropertyCardProps {
   property: SupabaseProperty;
@@ -16,9 +17,10 @@ interface SupabasePropertyCardProps {
 
 export function SupabasePropertyCard({ property, isSelected, onSelectionChange }: SupabasePropertyCardProps) {
   const isMobile = useIsMobile();
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   
   const formatPrice = (price: number | null) => {
-    if (!price) return 'Price on request';
+    if (!price || price === 1) return null; // Don't show if undefined, null, or 1
     if (price >= 1000000) {
       return `AED ${(price / 1000000).toFixed(1)}M`;
     } else if (price >= 1000) {
@@ -44,30 +46,53 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
 
   const getDisplayPrice = () => {
     if (property.kind === 'listing') {
-      return property.price_aed ? formatPrice(property.price_aed) : 'Price on request';
+      const formattedPrice = formatPrice(property.price_aed);
+      return formattedPrice || 'Price on request';
     } else {
       // Client request - show budget range
-      if (property.budget_min_aed && property.budget_max_aed) {
-        return `${formatPrice(property.budget_min_aed)} - ${formatPrice(property.budget_max_aed)}`;
-      } else if (property.budget_max_aed) {
-        return `Up to ${formatPrice(property.budget_max_aed)}`;
-      } else if (property.budget_min_aed) {
-        return `From ${formatPrice(property.budget_min_aed)}`;
+      const minPrice = formatPrice(property.budget_min_aed);
+      const maxPrice = formatPrice(property.budget_max_aed);
+      
+      // If both min and max are the same, only show max
+      if (property.budget_min_aed && property.budget_max_aed && property.budget_min_aed === property.budget_max_aed) {
+        return maxPrice || 'Budget flexible';
+      }
+      
+      if (minPrice && maxPrice) {
+        return `${minPrice} - ${maxPrice}`;
+      } else if (maxPrice) {
+        return `Up to ${maxPrice}`;
+      } else if (minPrice) {
+        return `From ${minPrice}`;
       }
       return 'Budget flexible';
     }
   };
 
   const getBedroomsDisplay = () => {
-    if (!property.bedrooms || property.bedrooms.length === 0) return null;
-    const bedCount = property.bedrooms[0];
+    if (!property.bedrooms || !Array.isArray(property.bedrooms) || property.bedrooms.length === 0) return null;
+    
+    // Filter out invalid bedrooms (111 or undefined/null)
+    const validBedrooms = property.bedrooms.filter(bed => 
+      bed !== null && bed !== undefined && bed !== 111 && typeof bed === 'number'
+    );
+    if (validBedrooms.length === 0) return null;
+    
+    const bedCount = validBedrooms[0];
     if (bedCount === 0) return 'Studio';
     return `${bedCount} Bed${bedCount !== 1 ? 's' : ''}`;
   };
 
   const getBathroomsDisplay = () => {
-    if (!property.bathrooms || property.bathrooms.length === 0) return null;
-    const bathCount = property.bathrooms[0];
+    if (!property.bathrooms || !Array.isArray(property.bathrooms) || property.bathrooms.length === 0) return null;
+    
+    // Filter out invalid bathrooms (undefined/null)
+    const validBathrooms = property.bathrooms.filter(bath => 
+      bath !== null && bath !== undefined && typeof bath === 'number'
+    );
+    if (validBathrooms.length === 0) return null;
+    
+    const bathCount = validBathrooms[0];
     return `${bathCount} Bath${bathCount !== 1 ? 's' : ''}`;
   };
 
