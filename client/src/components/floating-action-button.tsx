@@ -120,7 +120,7 @@ export function FloatingActionButton({
           <>
             <Mail className="h-5 w-5 mr-2" />
             <span className="font-medium">
-              {selectedCount === 1 ? "1 Property" : `${selectedCount} Properties`}
+              Inquire about {selectedCount} item{selectedCount !== 1 ? 's' : ''} selected
             </span>
           </>
         ) : (

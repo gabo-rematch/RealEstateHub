@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ExpandableText } from "@/components/expandable-text";
 import { SupabaseProperty } from "@/types/property";
 import { Bed, Bath, Square, MapPin, DollarSign, CheckCircle2 } from "lucide-react";
@@ -109,14 +110,11 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
             {/* Selection indicator and badges row */}
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <div 
-                  className="cursor-pointer touch-target p-1 -m-1"
-                  onClick={handleSelectionClick}
-                >
+                <div className="flex items-center">
                   {isSelected ? (
                     <CheckCircle2 className="h-5 w-5 text-primary" />
                   ) : (
-                    <div className="h-5 w-5 border-2 border-gray-300 rounded-full hover:border-primary transition-colors" />
+                    <div className="h-5 w-5 border-2 border-gray-300 rounded-full" />
                   )}
                 </div>
                 <div className="flex flex-wrap gap-1">
@@ -210,6 +208,20 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
               </span>
               <span>#{property.id?.slice(-6) || property.pk}</span>
             </div>
+
+            {/* CTA Button */}
+            <Button
+              onClick={handleSelectionClick}
+              variant={isSelected ? "outline" : "default"}
+              className={cn(
+                "w-full mt-3 touch-target",
+                isSelected 
+                  ? "border-primary text-primary hover:bg-primary/10" 
+                  : "bg-primary hover:bg-primary/90 text-white"
+              )}
+            >
+              {isSelected ? "Deselect" : "Select"}
+            </Button>
           </div>
         </CardContent>
       </Card>
