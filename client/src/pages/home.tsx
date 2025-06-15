@@ -146,19 +146,21 @@ export default function Home() {
 
   // Check if any filters are active to show New Search FAB
   const hasActiveFilters = () => {
-    return filters.unit_kind || 
-           filters.transaction_type || 
-           filters.property_type?.length || 
-           filters.bedrooms?.length || 
-           filters.communities?.length || 
-           filters.area_sqft_min || 
-           filters.area_sqft_max || 
-           filters.budget_min || 
-           filters.budget_max || 
-           filters.price_aed || 
-           filters.is_off_plan || 
-           filters.is_distressed_deal || 
-           filters.keyword_search;
+    return Boolean(
+      filters.unit_kind || 
+      filters.transaction_type || 
+      filters.property_type?.length || 
+      filters.bedrooms?.length || 
+      filters.communities?.length || 
+      filters.area_sqft_min || 
+      filters.area_sqft_max || 
+      filters.budget_min || 
+      filters.budget_max || 
+      filters.price_aed || 
+      filters.is_off_plan || 
+      filters.is_distressed_deal || 
+      filters.keyword_search
+    );
   };
 
   const handleOpenInquiry = () => {

@@ -287,15 +287,19 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
                 </div>
                 
                 {property.message_body_raw && (
-                  <p className="text-sm text-gray-600 line-clamp-2">
-                    {truncateDescription(property.message_body_raw)}
-                  </p>
+                  <ExpandableText 
+                    text={property.message_body_raw}
+                    maxLines={2}
+                    className="mb-2"
+                  />
                 )}
                 
                 {property.other_details && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {truncateDescription(property.other_details, 80)}
-                  </p>
+                  <ExpandableText 
+                    text={property.other_details}
+                    maxLines={1}
+                    className="text-xs text-gray-500"
+                  />
                 )}
               </div>
               
