@@ -45,51 +45,65 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
 
   // Handle bedrooms filter (different formats for listing vs client_request)
   if (filters.bedrooms && filters.bedrooms.length > 0) {
-    const bedroomNumbers = filters.bedrooms.map(b => parseInt(b));
+    const bedroomNumbers = filters.bedrooms.map(b => parseInt(b)).filter(n => !isNaN(n));
     
-    if (filters.unit_kind === 'listing') {
-      // For listings, bedrooms is a scalar value
-      query = query.in('data->>bedrooms', bedroomNumbers);
-    } else if (filters.unit_kind === 'client_request') {
-      // For client_request, bedrooms is an array - use overlaps operator
-      const bedroomArrays = bedroomNumbers.map(n => `[${n}]`);
-      query = query.overlaps('data->bedrooms', bedroomArrays);
-    } else {
-      // When no kind is specified, handle both formats
-      query = query.or(`data->>bedrooms.in.(${bedroomNumbers.join(',')}),data->bedrooms.ov.{${bedroomNumbers.map(n => `"${n}"`).join(',')}}`);
+    if (bedroomNumbers.length > 0) {
+      if (filters.unit_kind === 'listing') {
+        // For listings, bedrooms is typically a scalar value
+        query = query.in('data->>bedrooms', bedroomNumbers);
+      } else if (filters.unit_kind === 'client_request') {
+        // For client_request, bedrooms is an array - use contains operator
+        const orConditions = bedroomNumbers.map(n => `data->bedrooms.cs.[${n}]`).join(',');
+        query = query.or(orConditions);
+      } else {
+        // When no kind is specified, handle both formats
+        const scalarConditions = bedroomNumbers.map(n => `data->>bedrooms.eq.${n}`).join(',');
+        const arrayConditions = bedroomNumbers.map(n => `data->bedrooms.cs.[${n}]`).join(',');
+        query = query.or(`${scalarConditions},${arrayConditions}`);
+      }
     }
   }
 
   // Handle communities filter (different field names)
   if (filters.communities && filters.communities.length > 0) {
-    if (filters.unit_kind === 'listing') {
-      // For listings, use 'community' field (scalar)
-      query = query.in('data->>community', filters.communities);
-    } else if (filters.unit_kind === 'client_request') {
-      // For client_request, use 'communities' field (array)
-      query = query.overlaps('data->communities', filters.communities);
-    } else {
-      // When no kind is specified, handle both formats
-      const communityConditions = filters.communities.map(c => `data->>community.eq."${c}",data->communities.cs.["${c}"]`).join(',');
-      query = query.or(communityConditions);
+    const validCommunities = filters.communities.filter(c => c && c !== 'null');
+    
+    if (validCommunities.length > 0) {
+      if (filters.unit_kind === 'listing') {
+        // For listings, use 'community' field (scalar)
+        query = query.in('data->>community', validCommunities);
+      } else if (filters.unit_kind === 'client_request') {
+        // For client_request, use 'communities' field (array)
+        const orConditions = validCommunities.map(c => `data->communities.cs.["${c}"]`).join(',');
+        query = query.or(orConditions);
+      } else {
+        // When no kind is specified, handle both formats
+        const scalarConditions = validCommunities.map(c => `data->>community.eq."${c}"`).join(',');
+        const arrayConditions = validCommunities.map(c => `data->communities.cs.["${c}"]`).join(',');
+        query = query.or(`${scalarConditions},${arrayConditions}`);
+      }
     }
   }
 
   // Handle property types
   if (filters.property_type && filters.property_type.length > 0) {
-    query = query.overlaps('data->property_type', filters.property_type);
+    const validTypes = filters.property_type.filter(t => t && t !== 'null');
+    if (validTypes.length > 0) {
+      const orConditions = validTypes.map(t => `data->property_type.cs.["${t}"]`).join(',');
+      query = query.or(orConditions);
+    }
   }
 
-  // Handle budget filters
-  if (filters.budget_min) {
+  // Handle budget filters (for listings with price_aed)
+  if (filters.budget_min && !filters.price_aed) {
     query = query.gte('data->>price_aed', filters.budget_min.toString());
   }
 
-  if (filters.budget_max) {
+  if (filters.budget_max && !filters.price_aed) {
     query = query.lte('data->>price_aed', filters.budget_max.toString());
   }
 
-  // Handle client budget requests
+  // Handle client budget requests (when searching for client requests by price range)
   if (filters.price_aed) {
     query = query
       .lte('data->>budget_min_aed', filters.price_aed.toString())

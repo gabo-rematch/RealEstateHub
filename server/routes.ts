@@ -33,8 +33,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const property_type = req.query.property_type ? 
         (Array.isArray(req.query.property_type) ? req.query.property_type : [req.query.property_type]) : [];
 
-      // Check if we should use Supabase query builder
-      const useSupabase = !process.env.DATABASE_URL && process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY;
+      // Always use Supabase query builder when credentials are available
+      const useSupabase = process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY;
       
       if (useSupabase) {
         // Use dedicated Supabase query builder for better filtering
@@ -287,8 +287,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get unique filter values for dropdowns
   app.get("/api/filter-options", async (req, res) => {
     try {
-      // Check if we should use Supabase query builder
-      const useSupabase = !process.env.DATABASE_URL && process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY;
+      // Always use Supabase query builder when credentials are available
+      const useSupabase = process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY;
       
       if (useSupabase) {
         const filterOptions = await getFilterOptionsWithSupabase();
