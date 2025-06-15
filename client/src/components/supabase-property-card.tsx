@@ -210,7 +210,7 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
   };
 
   const getTitle = () => {
-    // Generate title: xBR (Studio if x = 0) + property_type + communities
+    // Generate title: xBR (Studio if x = 0) + property_type + "in" + communities
     const validBedrooms = property.bedrooms && Array.isArray(property.bedrooms) 
       ? property.bedrooms.filter(bed => bed !== null && bed !== undefined && bed !== 111 && typeof bed === 'number')
       : [];
@@ -229,7 +229,7 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
     
     let title = '';
     
-    // Add bedrooms
+    // Add bedrooms only if valid
     if (validBedrooms.length > 0) {
       const bedCount = validBedrooms[0];
       if (bedCount === 0) {
@@ -239,16 +239,23 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
       }
     }
     
-    // Add property type
+    // Add property type only if valid
     if (propertyType && propertyType.trim()) {
       const formattedType = propertyType
         .split(' ')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
         .join(' ');
-      title += formattedType + ' ';
+      title += formattedType;
+      
+      // Add "in" before community if both property type and community exist
+      if (validCommunities.length > 0) {
+        title += ' in ';
+      } else {
+        title += ' ';
+      }
     }
     
-    // Add community
+    // Add community only if valid
     if (validCommunities.length > 0) {
       title += validCommunities[0];
     }
@@ -311,23 +318,25 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
 
             {/* Property details */}
             <div className="space-y-2 text-sm text-gray-600">
-              {/* Bedrooms and Size on same line */}
-              <div className="flex items-center gap-4">
-                {getBedroomsDisplayEnhanced() && (
-                  <div className="flex items-center">
-                    <Bed className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">{getBedroomsDisplayEnhanced()}</div>
-                  </div>
-                )}
-                {property.area_sqft && property.area_sqft !== 1 && (
-                  <div className="flex items-center">
-                    <Square className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-                    <span className="truncate">{property.area_sqft.toLocaleString()} sq ft</span>
-                  </div>
-                )}
-              </div>
+              {/* Bedrooms and Size on same line - only show if either exists */}
+              {(getBedroomsDisplayEnhanced() || (property.area_sqft && property.area_sqft !== 1)) && (
+                <div className="flex items-center gap-4">
+                  {getBedroomsDisplayEnhanced() && (
+                    <div className="flex items-center">
+                      <Bed className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">{getBedroomsDisplayEnhanced()}</div>
+                    </div>
+                  )}
+                  {property.area_sqft && property.area_sqft !== 1 && (
+                    <div className="flex items-center">
+                      <Square className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                      <span className="truncate">{property.area_sqft.toLocaleString()} sq ft</span>
+                    </div>
+                  )}
+                </div>
+              )}
               
-              {/* Communities on separate line */}
+              {/* Communities on separate line - only show if exists */}
               {getCommunitiesDisplayEnhanced() && (
                 <div className="flex items-start">
                   <MapPin className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
@@ -452,23 +461,25 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
                 </h3>
                 
                 <div className="space-y-2 text-sm text-gray-600 mb-3">
-                  {/* Bedrooms and Size on same line */}
-                  <div className="flex items-center gap-6">
-                    {getBedroomsDisplayEnhanced() && (
-                      <div className="flex items-center">
-                        <Bed className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">{getBedroomsDisplayEnhanced()}</div>
-                      </div>
-                    )}
-                    {property.area_sqft && property.area_sqft !== 1 && (
-                      <div className="flex items-center">
-                        <Square className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-                        <span>{property.area_sqft.toLocaleString()} sq ft</span>
-                      </div>
-                    )}
-                  </div>
+                  {/* Bedrooms and Size on same line - only show if either exists */}
+                  {(getBedroomsDisplayEnhanced() || (property.area_sqft && property.area_sqft !== 1)) && (
+                    <div className="flex items-center gap-6">
+                      {getBedroomsDisplayEnhanced() && (
+                        <div className="flex items-center">
+                          <Bed className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">{getBedroomsDisplayEnhanced()}</div>
+                        </div>
+                      )}
+                      {property.area_sqft && property.area_sqft !== 1 && (
+                        <div className="flex items-center">
+                          <Square className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                          <span>{property.area_sqft.toLocaleString()} sq ft</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   
-                  {/* Communities on separate line */}
+                  {/* Communities on separate line - only show if exists */}
                   {getCommunitiesDisplayEnhanced() && (
                     <div className="flex items-start">
                       <MapPin className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
