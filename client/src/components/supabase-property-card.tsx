@@ -210,9 +210,14 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
   };
 
   const getTitle = () => {
-    // Generate a title from available data
-    const bedrooms = getBedroomsDisplay();
-    const community = getCommunityDisplay();
+    // Generate title: xBR (Studio if x = 0) + property_type + communities
+    const validBedrooms = property.bedrooms && Array.isArray(property.bedrooms) 
+      ? property.bedrooms.filter(bed => bed !== null && bed !== undefined && bed !== 111 && typeof bed === 'number')
+      : [];
+    
+    const validCommunities = property.communities && Array.isArray(property.communities)
+      ? property.communities.filter(community => community && community.trim() !== '')
+      : [];
     
     // Handle property type - it might be a string or array
     let propertyType = null;
@@ -223,18 +228,32 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
     }
     
     let title = '';
-    if (bedrooms) title += bedrooms + ' ';
+    
+    // Add bedrooms
+    if (validBedrooms.length > 0) {
+      const bedCount = validBedrooms[0];
+      if (bedCount === 0) {
+        title += 'Studio ';
+      } else {
+        title += `${bedCount}BR `;
+      }
+    }
+    
+    // Add property type
     if (propertyType && propertyType.trim()) {
-      // Properly capitalize the full property type
       const formattedType = propertyType
         .split(' ')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
         .join(' ');
       title += formattedType + ' ';
     }
-    if (community) title += `in ${community}`;
     
-    return title || 'Property';
+    // Add community
+    if (validCommunities.length > 0) {
+      title += validCommunities[0];
+    }
+    
+    return title.trim() || 'Property';
   };
 
   // Handle selection click on specific areas
@@ -290,36 +309,44 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
               {getTitle()}
             </h3>
 
-            {/* Property details grid */}
-            <div className="grid grid-cols-1 gap-3 text-sm text-gray-600">
-              {getBedroomsDisplayEnhanced() && (
-                <div className="flex items-start">
-                  <Bed className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">{getBedroomsDisplayEnhanced()}</div>
-                </div>
-              )}
-              {getPropertyTypesDisplayEnhanced() && (
-                <div className="flex items-start">
-                  <Square className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">{getPropertyTypesDisplayEnhanced()}</div>
-                </div>
-              )}
+            {/* Property details */}
+            <div className="space-y-2 text-sm text-gray-600">
+              {/* Bedrooms and Size on same line */}
+              <div className="flex items-center gap-4">
+                {getBedroomsDisplayEnhanced() && (
+                  <div className="flex items-center">
+                    <Bed className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">{getBedroomsDisplayEnhanced()}</div>
+                  </div>
+                )}
+                {property.area_sqft && property.area_sqft !== 1 && (
+                  <div className="flex items-center">
+                    <Square className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                    <span className="truncate">{property.area_sqft.toLocaleString()} sq ft</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Communities on separate line */}
               {getCommunitiesDisplayEnhanced() && (
                 <div className="flex items-start">
                   <MapPin className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">{getCommunitiesDisplayEnhanced()}</div>
                 </div>
               )}
+              
+              {/* Other details */}
               {getBathroomsDisplay() && (
                 <div className="flex items-center">
                   <Bath className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
                   <span className="truncate">{getBathroomsDisplay()}</span>
                 </div>
               )}
-              {property.area_sqft && property.area_sqft !== 1 && (
-                <div className="flex items-center">
-                  <Square className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-                  <span className="truncate">{property.area_sqft.toLocaleString()} sq ft</span>
+              
+              {getPropertyTypesDisplayEnhanced() && (
+                <div className="flex items-start">
+                  <Square className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">{getPropertyTypesDisplayEnhanced()}</div>
                 </div>
               )}
             </div>
@@ -424,35 +451,43 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
                   {getTitle()}
                 </h3>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-600 mb-3">
-                  {getBedroomsDisplayEnhanced() && (
-                    <div key="bedrooms" className="flex items-start">
-                      <Bed className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">{getBedroomsDisplayEnhanced()}</div>
-                    </div>
-                  )}
-                  {getPropertyTypesDisplayEnhanced() && (
-                    <div key="property-types" className="flex items-start">
-                      <Square className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">{getPropertyTypesDisplayEnhanced()}</div>
-                    </div>
-                  )}
+                <div className="space-y-2 text-sm text-gray-600 mb-3">
+                  {/* Bedrooms and Size on same line */}
+                  <div className="flex items-center gap-6">
+                    {getBedroomsDisplayEnhanced() && (
+                      <div className="flex items-center">
+                        <Bed className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">{getBedroomsDisplayEnhanced()}</div>
+                      </div>
+                    )}
+                    {property.area_sqft && property.area_sqft !== 1 && (
+                      <div className="flex items-center">
+                        <Square className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                        <span>{property.area_sqft.toLocaleString()} sq ft</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Communities on separate line */}
                   {getCommunitiesDisplayEnhanced() && (
-                    <div key="communities" className="flex items-start">
+                    <div className="flex items-start">
                       <MapPin className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">{getCommunitiesDisplayEnhanced()}</div>
                     </div>
                   )}
+                  
+                  {/* Other details */}
                   {getBathroomsDisplay() && (
-                    <div key="bathrooms" className="flex items-center">
+                    <div className="flex items-center">
                       <Bath className="h-4 w-4 text-gray-400 mr-2" />
                       <span>{getBathroomsDisplay()}</span>
                     </div>
                   )}
-                  {property.area_sqft && property.area_sqft !== 1 && (
-                    <div key="area" className="flex items-center">
-                      <Square className="h-4 w-4 text-gray-400 mr-2" />
-                      <span>{property.area_sqft.toLocaleString()} sq ft</span>
+                  
+                  {getPropertyTypesDisplayEnhanced() && (
+                    <div className="flex items-start">
+                      <Square className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">{getPropertyTypesDisplayEnhanced()}</div>
                     </div>
                   )}
                 </div>
