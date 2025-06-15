@@ -13,6 +13,8 @@ interface SupabasePropertyCardProps {
 }
 
 export function SupabasePropertyCard({ property, isSelected, onSelectionChange }: SupabasePropertyCardProps) {
+  const isMobile = useIsMobile();
+  
   const formatPrice = (price: number | null) => {
     if (!price) return 'Price on request';
     if (price >= 1000000) {
@@ -86,6 +88,130 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
     return title || 'Property';
   };
 
+  // Handle mobile card tap selection
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (isMobile) {
+      onSelectionChange(!isSelected);
+    }
+  };
+
+  if (isMobile) {
+    return (
+      <Card 
+        className={cn(
+          "hover:shadow-md transition-all duration-200 cursor-pointer",
+          isSelected && "ring-2 ring-primary bg-primary/5",
+          "active:scale-[0.98]"
+        )}
+        onClick={handleCardClick}
+      >
+        <CardContent className="p-4">
+          <div className="space-y-4">
+            {/* Selection indicator and badges row */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                {isSelected ? (
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                ) : (
+                  <div className="h-5 w-5 border-2 border-gray-300 rounded-full" />
+                )}
+                <div className="flex flex-wrap gap-1">
+                  <Badge className={getTransactionBadgeColor(property.transaction_type)} variant="secondary">
+                    {property.transaction_type.charAt(0).toUpperCase() + property.transaction_type.slice(1)}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {property.kind === 'client_request' ? 'Request' : 'Listing'}
+                  </Badge>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-lg font-bold text-gray-900">
+                  {getDisplayPrice()}
+                </div>
+                {property.area_sqft && property.price_aed && property.kind === 'listing' && (
+                  <div className="text-xs text-gray-500">
+                    {property.transaction_type === 'rent' ? 'per year' : formatPricePerSqft(property.price_aed, property.area_sqft)}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Title */}
+            <h3 className="text-base font-semibold text-gray-900 leading-tight">
+              {getTitle()}
+            </h3>
+
+            {/* Property details grid */}
+            <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
+              {getBedroomsDisplay() && (
+                <div className="flex items-center">
+                  <Bed className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                  <span className="truncate">{getBedroomsDisplay()}</span>
+                </div>
+              )}
+              {getBathroomsDisplay() && (
+                <div className="flex items-center">
+                  <Bath className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                  <span className="truncate">{getBathroomsDisplay()}</span>
+                </div>
+              )}
+              {property.area_sqft && (
+                <div className="flex items-center">
+                  <Square className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                  <span className="truncate">{property.area_sqft.toLocaleString()} sq ft</span>
+                </div>
+              )}
+              {getCommunityDisplay() && (
+                <div className="flex items-center">
+                  <MapPin className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                  <span className="truncate">{getCommunityDisplay()}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Special badges */}
+            {(property.is_off_plan || property.is_distressed_deal || property.is_urgent) && (
+              <div className="flex flex-wrap gap-1">
+                {property.is_off_plan && (
+                  <Badge className="bg-orange-100 text-orange-800 text-xs">
+                    Off Plan
+                  </Badge>
+                )}
+                {property.is_distressed_deal && (
+                  <Badge className="bg-red-100 text-red-800 text-xs">
+                    Distressed
+                  </Badge>
+                )}
+                {property.is_urgent && (
+                  <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                    Urgent
+                  </Badge>
+                )}
+              </div>
+            )}
+
+            {/* Description - mobile optimized */}
+            {property.message_body_raw && (
+              <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed">
+                {truncateDescription(property.message_body_raw, 150)}
+              </p>
+            )}
+
+            {/* Footer */}
+            <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-100">
+              <span>
+                {property.updated_at ? new Date(property.updated_at).toLocaleDateString() : 'Recently updated'}
+              </span>
+              <span>#{property.id?.slice(-6) || property.pk}</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Desktop layout (original)
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-6">
