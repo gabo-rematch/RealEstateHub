@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerFooter } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,8 +10,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { SearchFilters, InquiryFormData, InquiryPayload } from "@/types/property";
-import { Send } from "lucide-react";
+import { Send, X, Phone, MessageSquare, Link2, ChevronLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const inquirySchema = z.object({
   whatsappNumber: z.string()
@@ -30,6 +32,7 @@ interface InquiryModalProps {
 export function InquiryModal({ isOpen, onClose, selectedPropertyIds, searchFilters }: InquiryModalProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isMobile = useIsMobile();
 
   const form = useForm<InquiryFormData>({
     resolver: zodResolver(inquirySchema),

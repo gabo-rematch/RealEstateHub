@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { SearchFiltersComponent } from "@/components/search-filters";
-
 import { SupabasePropertyCard } from "@/components/supabase-property-card";
 import { FloatingActionButton } from "@/components/floating-action-button";
 import { InquiryModal } from "@/components/inquiry-modal";
@@ -9,11 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchFilters, SupabaseProperty } from "@/types/property";
-import { Building, RotateCcw, Search } from "lucide-react";
+import { Building, RotateCcw, Search, ChevronUp, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
 
 export default function Home() {
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [filters, setFilters] = useState<SearchFilters>({
     unit_kind: "",
     transaction_type: "",
@@ -23,6 +25,8 @@ export default function Home() {
   const [hasSearched, setHasSearched] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [sortBy, setSortBy] = useState("updated_at_desc");
+  const [isHeaderVisible, setIsHeaderVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
 
   // Fetch properties based on filters
   const { data: properties = [], isLoading, error, refetch } = useQuery({
@@ -93,12 +97,38 @@ export default function Home() {
 
   
 
+  // Mobile scroll behavior - hide/show header on scroll
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      
+      if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        // Scrolling down - hide header
+        setIsHeaderVisible(false);
+      } else if (currentScrollY < lastScrollY) {
+        // Scrolling up - show header
+        setIsHeaderVisible(true);
+      }
+      
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY, isMobile]);
+
   const handlePropertySelection = (propertyId: string, selected: boolean) => {
     if (selected) {
       setSelectedPropertyIds(prev => [...prev, propertyId]);
     } else {
       setSelectedPropertyIds(prev => prev.filter(id => id !== propertyId));
     }
+  };
+
+  const handleDeselectProperty = (propertyId: string) => {
+    setSelectedPropertyIds(prev => prev.filter(id => id !== propertyId));
   };
 
   const handleNewSearch = () => {
@@ -114,6 +144,18 @@ export default function Home() {
 
   const handleOpenInquiry = () => {
     setIsInquiryModalOpen(true);
+  };
+
+  // Pull-to-refresh for mobile
+  const handleRefresh = async () => {
+    if ('vibrate' in navigator) {
+      navigator.vibrate(50); // Haptic feedback
+    }
+    await refetch();
+    toast({
+      title: "Properties refreshed",
+      description: "Showing latest property listings",
+    });
   };
 
   // Show error state
