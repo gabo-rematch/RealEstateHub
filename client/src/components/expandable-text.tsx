@@ -34,9 +34,16 @@ export function ExpandableText({ text, maxLines = 3, className }: ExpandableText
 
   const formattedText = formatText(text);
   
-  // Simple line estimation - split by common break points and estimate line count
-  const estimatedLineCount = Math.ceil(formattedText.length / 60); // Rough estimate: ~60 chars per line
-  const needsExpansion = estimatedLineCount > maxLines;
+  // More accurate line count estimation based on actual line breaks and content length
+  const lines = formattedText.split('\n');
+  const estimatedLineCount = lines.reduce((total, line) => {
+    // Estimate wrapped lines based on character count (assuming ~50 chars per line for mobile)
+    const wrappedLines = Math.max(1, Math.ceil(line.length / 50));
+    return total + wrappedLines;
+  }, 0);
+  
+  // Always show "Show more" if content is longer than maxLines, regardless of length
+  const needsExpansion = estimatedLineCount > maxLines || formattedText.length > 150;
 
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card selection when clicking show more/less
