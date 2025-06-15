@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { SearchFiltersComponent } from "@/components/search-filters";
 import { SupabasePropertyCard } from "@/components/supabase-property-card";
 import { FloatingActionButton } from "@/components/floating-action-button";
+import { NewSearchFab } from "@/components/new-search-fab";
 import { InquiryModal } from "@/components/inquiry-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -135,11 +136,29 @@ export default function Home() {
     setFilters({ unit_kind: "", transaction_type: "" });
     setSelectedPropertyIds([]);
     setHasSearched(false);
+    setCurrentPage(0);
     sessionStorage.removeItem('inquiryFormData');
     toast({
       title: "Search reset successfully",
       description: "All filters and selections have been cleared.",
     });
+  };
+
+  // Check if any filters are active to show New Search FAB
+  const hasActiveFilters = () => {
+    return filters.unit_kind || 
+           filters.transaction_type || 
+           filters.property_type?.length || 
+           filters.bedrooms?.length || 
+           filters.communities?.length || 
+           filters.area_sqft_min || 
+           filters.area_sqft_max || 
+           filters.budget_min || 
+           filters.budget_max || 
+           filters.price_aed || 
+           filters.is_off_plan || 
+           filters.is_distressed_deal || 
+           filters.keyword_search;
   };
 
   const handleOpenInquiry = () => {
@@ -428,6 +447,12 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* New Search FAB */}
+      <NewSearchFab
+        onClick={handleNewSearch}
+        isVisible={hasActiveFilters()}
+      />
 
       {/* Enhanced Floating Action Button with Mobile Optimization */}
       <FloatingActionButton
