@@ -294,14 +294,7 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
                   />
                 )}
                 
-                {property.other_details && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {property.other_details.length > 80 
-                      ? property.other_details.substring(0, 80) + '...' 
-                      : property.other_details
-                    }
-                  </p>
-                )}
+                
               </div>
               
               <div className="flex-shrink-0 text-right ml-4">

@@ -16,8 +16,26 @@ export function ExpandableText({ text, maxLines = 3, className }: ExpandableText
     return null;
   }
 
+  // Format text to be more human-readable
+  const formatText = (rawText: string) => {
+    return rawText
+      // Remove markdown-style asterisks for bold text
+      .replace(/\*([^*]+)\*/g, '$1')
+      // Clean up excessive whitespace and normalize line breaks
+      .replace(/\n\s*\n/g, '\n\n')
+      // Remove excessive spaces
+      .replace(/\s+/g, ' ')
+      // Ensure proper spacing around phone numbers
+      .replace(/(\+\d{12})/g, '\n$1')
+      // Add spacing before bullet points or lists
+      .replace(/([^\n])(Size|BUA|Height|Use|Budget|Preferred)/g, '$1\n$2')
+      .trim();
+  };
+
+  const formattedText = formatText(text);
+  
   // Simple line estimation - split by common break points and estimate line count
-  const estimatedLineCount = Math.ceil(text.length / 60); // Rough estimate: ~60 chars per line
+  const estimatedLineCount = Math.ceil(formattedText.length / 60); // Rough estimate: ~60 chars per line
   const needsExpansion = estimatedLineCount > maxLines;
 
   const handleToggle = (e: React.MouseEvent) => {
@@ -42,7 +60,7 @@ export function ExpandableText({ text, maxLines = 3, className }: ExpandableText
               }
         }
       >
-        {text}
+        {formattedText}
       </div>
       
       {needsExpansion && (
