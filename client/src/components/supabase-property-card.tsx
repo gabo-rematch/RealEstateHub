@@ -213,11 +213,18 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
     // Generate a title from available data
     const bedrooms = getBedroomsDisplay();
     const community = getCommunityDisplay();
-    const propertyType = property.property_type?.[0];
+    
+    // Handle property type - it might be a string or array
+    let propertyType = null;
+    if (Array.isArray(property.property_type) && property.property_type.length > 0) {
+      propertyType = property.property_type[0];
+    } else if (typeof property.property_type === 'string') {
+      propertyType = property.property_type;
+    }
     
     let title = '';
     if (bedrooms) title += bedrooms + ' ';
-    if (propertyType) {
+    if (propertyType && propertyType.trim()) {
       // Properly capitalize the full property type
       const formattedType = propertyType
         .split(' ')
