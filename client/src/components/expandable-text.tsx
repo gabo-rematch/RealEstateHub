@@ -19,12 +19,14 @@ export function ExpandableText({ text, maxLines = 3, className }: ExpandableText
   // Format text to be more human-readable
   const formatText = (rawText: string) => {
     return rawText
-      // Remove markdown-style asterisks for bold text
-      .replace(/\*([^*]+)\*/g, '$1')
+      // Remove quotes at the beginning and end
+      .replace(/^["']|["']$/g, '')
+      // Convert literal \n to actual line breaks
+      .replace(/\\n/g, '\n')
       // Clean up excessive whitespace and normalize line breaks
       .replace(/\n\s*\n/g, '\n\n')
-      // Remove excessive spaces
-      .replace(/\s+/g, ' ')
+      // Remove excessive spaces but preserve single spaces
+      .replace(/[ \t]+/g, ' ')
       // Ensure proper spacing around phone numbers
       .replace(/(\+\d{12})/g, '\n$1')
       // Add spacing before bullet points or lists
@@ -33,6 +35,21 @@ export function ExpandableText({ text, maxLines = 3, className }: ExpandableText
   };
 
   const formattedText = formatText(text);
+  
+  // Parse text with bold formatting
+  const parseTextWithBold = (text: string) => {
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <strong key={index} className="font-semibold">
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      return part;
+    });
+  };
   
   // More accurate line count estimation based on actual line breaks and content length
   const lines = formattedText.split('\n');
@@ -67,7 +84,7 @@ export function ExpandableText({ text, maxLines = 3, className }: ExpandableText
               }
         }
       >
-        {formattedText}
+        {parseTextWithBold(formattedText)}
       </div>
       
       {needsExpansion && (
