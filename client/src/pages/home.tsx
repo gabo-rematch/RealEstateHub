@@ -28,10 +28,11 @@ export default function Home() {
   const [sortBy, setSortBy] = useState("updated_at_desc");
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [searchTrigger, setSearchTrigger] = useState(0);
 
   // Fetch properties based on filters
   const { data: properties = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['properties', filters, currentPage],
+    queryKey: ['properties', filters, currentPage, searchTrigger],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
       
@@ -93,7 +94,7 @@ export default function Home() {
   const handleSearch = () => {
     setCurrentPage(0); // Reset to first page when searching
     setHasSearched(true); // Mark that a search has been performed
-    refetch(); // Trigger a new query
+    setSearchTrigger(prev => prev + 1); // Trigger a new query
   };
 
   
