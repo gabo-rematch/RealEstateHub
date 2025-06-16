@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,8 +20,18 @@ const inquirySchema = z.object({
   whatsappNumber: z.string()
     .min(1, "WhatsApp number is required")
     .regex(/^\+[1-9]\d{1,14}$/, "Please enter a valid WhatsApp number with country code (e.g., +971 50 123 4567)"),
+  lookingFor: z.string().min(1, "Looking for is required"),
+  transactionType: z.string().min(1, "Transaction type is required"),
+  propertyType: z.array(z.string()).min(1, "Property type is required"),
+  priceMin: z.number().optional(),
+  priceMax: z.number().optional(),
+  listingPrice: z.number().optional(),
+  bedrooms: z.array(z.string()).min(1, "Bedrooms selection is required"),
+  communities: z.array(z.string()).min(1, "Communities selection is required"),
   notes: z.string().optional(),
-  portalLink: z.string().url().optional().or(z.literal("")),
+  portalLink: z.string().optional(),
+  isOffPlan: z.boolean().optional(),
+  isDistressed: z.boolean().optional(),
 });
 
 interface InquiryModalProps {
@@ -34,12 +46,22 @@ export function InquiryModal({ isOpen, onClose, selectedPropertyIds, searchFilte
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isMobile = useIsMobile();
 
-  const form = useForm<InquiryFormData>({
+  const form = useForm({
     resolver: zodResolver(inquirySchema),
     defaultValues: {
       whatsappNumber: "",
+      lookingFor: searchFilters.unit_kind || "listing",
+      transactionType: searchFilters.transaction_type || "",
+      propertyType: searchFilters.property_type || [],
+      priceMin: searchFilters.budget_min || undefined,
+      priceMax: searchFilters.budget_max || undefined,
+      listingPrice: searchFilters.price_aed || undefined,
+      bedrooms: searchFilters.bedrooms || [],
+      communities: searchFilters.communities || [],
       notes: "",
       portalLink: "",
+      isOffPlan: searchFilters.is_off_plan || false,
+      isDistressed: searchFilters.is_distressed_deal || false,
     },
   });
 
@@ -156,7 +178,8 @@ export function InquiryModal({ isOpen, onClose, selectedPropertyIds, searchFilte
 
           {/* Inquiry Form */}
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Agent Contact */}
               <div>
                 <h4 className="text-sm font-medium text-gray-900 mb-3">Agent Contact Details</h4>
                 <FormField
@@ -182,6 +205,188 @@ export function InquiryModal({ isOpen, onClose, selectedPropertyIds, searchFilte
                 />
               </div>
 
+              {/* Client Requirements */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-900 mb-3">Client Requirements</h4>
+                <div className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="lookingFor"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Looking For <span className="text-red-500">*</span>
+                        </FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select what you're looking for" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="listing">Listing</SelectItem>
+                            <SelectItem value="client_request">Client Request</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="transactionType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Transaction Type <span className="text-red-500">*</span>
+                        </FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select transaction type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="sale">Sale</SelectItem>
+                            <SelectItem value="rent">Rent</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="propertyType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Property Type <span className="text-red-500">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., Apartment, Villa, Townhouse"
+                            value={field.value?.join(', ') || ''}
+                            onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Price fields - conditional based on lookingFor */}
+                  {form.watch('lookingFor') === 'listing' ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="priceMin"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              Price Min (AED) <span className="text-red-500">*</span>
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                placeholder="500000"
+                                value={field.value || ''}
+                                onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="priceMax"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              Price Max (AED) <span className="text-red-500">*</span>
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                placeholder="1000000"
+                                value={field.value || ''}
+                                onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  ) : (
+                    <FormField
+                      control={form.control}
+                      name="listingPrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Listing Price (AED) <span className="text-red-500">*</span>
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="750000"
+                              value={field.value || ''}
+                              onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  <FormField
+                    control={form.control}
+                    name="bedrooms"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Bedrooms <span className="text-red-500">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., 1, 2, 3"
+                            value={field.value?.join(', ') || ''}
+                            onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="communities"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Communities <span className="text-red-500">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., Downtown Dubai, Marina, JBR"
+                            value={field.value?.join(', ') || ''}
+                            onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Optional Fields */}
               <div>
                 <h4 className="text-sm font-medium text-gray-900 mb-3">Additional Information</h4>
                 <div className="space-y-4">
@@ -203,22 +408,64 @@ export function InquiryModal({ isOpen, onClose, selectedPropertyIds, searchFilte
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="portalLink"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Portal Link / Image URL</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="https://example.com/portal-link"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                  {form.watch('lookingFor') === 'client_request' && (
+                    <FormField
+                      control={form.control}
+                      name="portalLink"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Portal Link / Picture</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="https://example.com/portal-link"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  <div className="flex items-center space-x-4">
+                    <FormField
+                      control={form.control}
+                      name="isOffPlan"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Off Plan</FormLabel>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+
+                    {form.watch('lookingFor') === 'client_request' && (
+                      <FormField
+                        control={form.control}
+                        name="isDistressed"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>Distressed</FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
+                  </div>
                 </div>
               </div>
 

@@ -50,8 +50,18 @@ export interface SupabaseProperty {
 
 export interface InquiryFormData {
   whatsappNumber: string;
+  lookingFor: string;
+  transactionType: string;
+  propertyType: string[];
+  priceMin?: number;
+  priceMax?: number;
+  listingPrice?: number;
+  bedrooms: string[];
+  communities: string[];
   notes?: string;
   portalLink?: string;
+  isOffPlan?: boolean;
+  isDistressed?: boolean;
 }
 
 export interface InquiryPayload {
