@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -237,6 +237,8 @@ function FilterChips({ filters, onRemoveFilter, onClearAll }: FilterChipsProps) 
 export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isLoading }: SearchFiltersProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const isMobile = useIsMobile();
+  
+
 
   // Fetch dynamic filter options from the database
   const { data: filterOptions = {} } = useQuery({
@@ -413,10 +415,10 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 Listing Price (AED)
               </Label>
               <Input
-                type="text"
-                placeholder="e.g., 750,000"
-                value={filters.price_aed ? formatNumberWithCommas(filters.price_aed) : ""}
-                onChange={(e) => updateFilter('price_aed', parseNumberFromFormatted(e.target.value))}
+                type="number"
+                placeholder="750000"
+                value={filters.price_aed || ""}
+                onChange={(e) => updateFilter('price_aed', e.target.value ? Number(e.target.value) : undefined)}
               />
             </div>
           ) : (
