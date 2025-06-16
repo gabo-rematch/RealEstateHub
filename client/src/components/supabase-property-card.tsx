@@ -9,6 +9,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
+
+
 interface SupabasePropertyCardProps {
   property: SupabaseProperty;
   isSelected: boolean;
@@ -39,12 +41,8 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
     if (!text) return '';
     
     return text
-      // Replace multiple consecutive newlines with double newlines
-      .replace(/\n{3,}/g, '\n\n')
-      // Replace single newlines with spaces, but keep double newlines as paragraph breaks
-      .replace(/(?<!\n)\n(?!\n)/g, ' ')
-      // Replace double newlines with single newlines for paragraph separation
-      .replace(/\n\n/g, '\n')
+      // Remove quotes at the beginning and end
+      .replace(/^["']|["']$/g, '')
       // Clean up extra spaces
       .replace(/\s{2,}/g, ' ')
       // Trim whitespace from start and end
