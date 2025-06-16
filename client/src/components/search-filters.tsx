@@ -406,24 +406,42 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
             />
           </div>
           
-          <div>
-            <Label className="block text-sm font-medium text-gray-700 mb-2">
-              Budget Range (AED)
-            </Label>
-            <div className="grid grid-cols-2 gap-2 mb-2">
+          {/* Price fields - conditional based on unit_kind */}
+          {filters.unit_kind === 'client_request' ? (
+            <div>
+              <Label className="block text-sm font-medium text-gray-700 mb-2">
+                Listing Price (AED)
+              </Label>
               <Input
                 type="text"
-                placeholder="Min (e.g., 100,000)"
-                value={filters.budget_min ? formatNumberWithCommas(filters.budget_min) : ""}
-                onChange={(e) => updateFilter('budget_min', parseNumberFromFormatted(e.target.value))}
-              />
-              <Input
-                type="text"
-                placeholder="Max (e.g., 1,000,000)"
-                value={filters.budget_max ? formatNumberWithCommas(filters.budget_max) : ""}
-                onChange={(e) => updateFilter('budget_max', parseNumberFromFormatted(e.target.value))}
+                placeholder="e.g., 750,000"
+                value={filters.price_aed ? formatNumberWithCommas(filters.price_aed) : ""}
+                onChange={(e) => updateFilter('price_aed', parseNumberFromFormatted(e.target.value))}
               />
             </div>
+          ) : (
+            <div>
+              <Label className="block text-sm font-medium text-gray-700 mb-2">
+                Budget Range (AED)
+              </Label>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <Input
+                  type="text"
+                  placeholder="Min (e.g., 100,000)"
+                  value={filters.budget_min ? formatNumberWithCommas(filters.budget_min) : ""}
+                  onChange={(e) => updateFilter('budget_min', parseNumberFromFormatted(e.target.value))}
+                />
+                <Input
+                  type="text"
+                  placeholder="Max (e.g., 1,000,000)"
+                  value={filters.budget_max ? formatNumberWithCommas(filters.budget_max) : ""}
+                  onChange={(e) => updateFilter('budget_max', parseNumberFromFormatted(e.target.value))}
+                />
+              </div>
+            </div>
+          )}
+          
+          <div>
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <Checkbox 
