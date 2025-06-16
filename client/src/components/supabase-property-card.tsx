@@ -218,9 +218,9 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
 
   const getTitle = () => {
     // Title format: "[bedrooms]BR [property_type] in [communities]"
-    const validBedrooms = property.bedrooms && Array.isArray(property.bedrooms) 
+    const validBedrooms = Array.isArray(property.bedrooms)
       ? property.bedrooms.filter(bed => bed !== null && bed !== undefined && bed !== 111 && typeof bed === 'number')
-      : [];
+      : (typeof property.bedrooms === 'number' ? [property.bedrooms] : []);
     
     const validCommunities = property.communities && Array.isArray(property.communities)
       ? property.communities.filter(community => 
@@ -243,13 +243,18 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
     
     let title = '';
     
-    // Add bedrooms if they exist (not null/undefined)
-    if (validBedrooms.length > 0) {
+    // Add bedrooms if they exist (not null/undefined) and not for Land, Office, Retail
+    if (validBedrooms.length > 0 && propertyType) {
       const bedCount = validBedrooms[0];
-      if (bedCount === 0) {
-        title += 'Studio ';
-      } else {
-        title += `${bedCount}BR `;
+      const normalizedPropertyType = propertyType.toLowerCase().trim();
+      
+      // Hide bedrooms for Land, Office, Retail and if bedrooms = 111
+      if (!['land', 'office', 'retail'].includes(normalizedPropertyType) && bedCount !== 111) {
+        if (bedCount === 0) {
+          title += 'Studio ';
+        } else {
+          title += `${bedCount}BR `;
+        }
       }
     }
     
@@ -355,12 +360,6 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
               )}
               
               {/* Other details */}
-              {getBathroomsDisplay() && (
-                <div className="flex items-center">
-                  <Bath className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
-                  <span className="truncate">{getBathroomsDisplay()}</span>
-                </div>
-              )}
               
               {getPropertyTypesDisplayEnhanced() && (
                 <div className="flex items-start">
@@ -498,12 +497,6 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
                   )}
                   
                   {/* Other details */}
-                  {getBathroomsDisplay() && (
-                    <div className="flex items-center">
-                      <Bath className="h-4 w-4 text-gray-400 mr-2" />
-                      <span>{getBathroomsDisplay()}</span>
-                    </div>
-                  )}
                   
                   {getPropertyTypesDisplayEnhanced() && (
                     <div className="flex items-start">
