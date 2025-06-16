@@ -86,7 +86,7 @@ export default function Home() {
 
       return uniqueProperties;
     },
-    enabled: true,
+    enabled: false,
   });
 
 
@@ -94,7 +94,7 @@ export default function Home() {
   const handleSearch = () => {
     setCurrentPage(0); // Reset to first page when searching
     setHasSearched(true); // Mark that a search has been performed
-    setSearchTrigger(prev => prev + 1); // Trigger a new query
+    refetch(); // Trigger a new query manually
   };
 
   
