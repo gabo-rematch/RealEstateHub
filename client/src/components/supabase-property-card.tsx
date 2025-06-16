@@ -35,6 +35,22 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
     return `~AED ${pricePerSqft.toLocaleString(undefined, { maximumFractionDigits: 0 })}/sq ft`;
   };
 
+  const cleanMessageBody = (text: string) => {
+    if (!text) return '';
+    
+    return text
+      // Replace multiple consecutive newlines with double newlines
+      .replace(/\n{3,}/g, '\n\n')
+      // Replace single newlines with spaces, but keep double newlines as paragraph breaks
+      .replace(/(?<!\n)\n(?!\n)/g, ' ')
+      // Replace double newlines with single newlines for paragraph separation
+      .replace(/\n\n/g, '\n')
+      // Clean up extra spaces
+      .replace(/\s{2,}/g, ' ')
+      // Trim whitespace from start and end
+      .trim();
+  };
+
   const getTransactionBadgeColor = (type: string) => {
     return type === 'sale' ? 'bg-primary-100 text-primary-800' : 'bg-green-100 text-green-800';
   };
@@ -393,7 +409,7 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
             {/* Description with expandable text */}
             {property.message_body_raw && (
               <ExpandableText 
-                text={property.message_body_raw}
+                text={cleanMessageBody(property.message_body_raw)}
                 maxLines={3}
                 className="leading-relaxed"
               />
@@ -508,7 +524,7 @@ export function SupabasePropertyCard({ property, isSelected, onSelectionChange }
                 
                 {property.message_body_raw && (
                   <ExpandableText 
-                    text={property.message_body_raw}
+                    text={cleanMessageBody(property.message_body_raw)}
                     maxLines={2}
                     className="mb-2"
                   />
