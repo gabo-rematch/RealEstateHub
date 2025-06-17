@@ -517,7 +517,15 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 placeholder="e.g., 750,000"
                 value={localNumberInputs.price_aed}
                 onChange={(e) => updateLocalNumberInput('price_aed', e.target.value)}
-                onBlur={applyNumberInputs}
+                onFocus={() => setActivelyEditingFields(prev => new Set(prev).add('price_aed'))}
+                onBlur={() => {
+                  setActivelyEditingFields(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete('price_aed');
+                    return newSet;
+                  });
+                  applyNumberInputs();
+                }}
               />
             </div>
           ) : (
@@ -531,14 +539,30 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                   placeholder="Min (e.g., 100,000)"
                   value={localNumberInputs.budget_min}
                   onChange={(e) => updateLocalNumberInput('budget_min', e.target.value)}
-                  onBlur={applyNumberInputs}
+                  onFocus={() => setActivelyEditingFields(prev => new Set(prev).add('budget_min'))}
+                  onBlur={() => {
+                    setActivelyEditingFields(prev => {
+                      const newSet = new Set(prev);
+                      newSet.delete('budget_min');
+                      return newSet;
+                    });
+                    applyNumberInputs();
+                  }}
                 />
                 <Input
                   type="text"
                   placeholder="Max (e.g., 1,000,000)"
                   value={localNumberInputs.budget_max}
                   onChange={(e) => updateLocalNumberInput('budget_max', e.target.value)}
-                  onBlur={applyNumberInputs}
+                  onFocus={() => setActivelyEditingFields(prev => new Set(prev).add('budget_max'))}
+                  onBlur={() => {
+                    setActivelyEditingFields(prev => {
+                      const newSet = new Set(prev);
+                      newSet.delete('budget_max');
+                      return newSet;
+                    });
+                    applyNumberInputs();
+                  }}
                 />
               </div>
             </div>
