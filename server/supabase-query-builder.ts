@@ -99,18 +99,15 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
   // E) Communities multiselect - handle both communities and community fields
   if (filters.communities && filters.communities.length > 0) {
     console.log('🏘️ Applying communities filter:', filters.communities);
-    // Handle both 'communities' array and 'community' scalar fields
+    
+    // Use textSearch for communities to avoid JSON parsing issues with special characters
     if (filters.communities.length === 1) {
       const community = filters.communities[0];
-      // Check both communities (array) and community (scalar) fields
-      query = query.or(`data->communities.cs.${JSON.stringify([community])},data->>community.eq.${JSON.stringify(community)}`);
+      // Use contains operator which is more robust for JSON arrays
+      query = query.contains('data->communities', [community]);
     } else {
-      // For multiple communities, check both fields for each community
-      const orConditions = filters.communities.flatMap(community => [
-        `data->communities.cs.${JSON.stringify([community])}`,
-        `data->>community.eq.${JSON.stringify(community)}`
-      ]).join(',');
-      query = query.or(orConditions);
+      // For multiple communities, use overlaps operator
+      query = query.overlaps('data->communities', filters.communities);
     }
   }
 
