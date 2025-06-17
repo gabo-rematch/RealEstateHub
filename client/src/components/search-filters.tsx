@@ -274,24 +274,34 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
   const budgetMaxRef = useRef<HTMLInputElement>(null);
   const priceRef = useRef<HTMLInputElement>(null);
 
-  // Initialize input values only once when component mounts
+  // Track the last applied values to prevent unnecessary clearing
+  const lastAppliedValues = useRef({
+    area_sqft_min: filters.area_sqft_min,
+    area_sqft_max: filters.area_sqft_max,
+    budget_min: filters.budget_min,
+    budget_max: filters.budget_max,
+    price_aed: filters.price_aed
+  });
+
+  // Only update input values when component mounts or when explicitly cleared
   useEffect(() => {
-    if (areaMinRef.current) {
+    // Initialize values on mount
+    if (areaMinRef.current && areaMinRef.current.value === "") {
       areaMinRef.current.value = filters.area_sqft_min?.toString() || "";
     }
-    if (areaMaxRef.current) {
+    if (areaMaxRef.current && areaMaxRef.current.value === "") {
       areaMaxRef.current.value = filters.area_sqft_max?.toString() || "";
     }
-    if (budgetMinRef.current) {
+    if (budgetMinRef.current && budgetMinRef.current.value === "") {
       budgetMinRef.current.value = filters.budget_min?.toString() || "";
     }
-    if (budgetMaxRef.current) {
+    if (budgetMaxRef.current && budgetMaxRef.current.value === "") {
       budgetMaxRef.current.value = filters.budget_max?.toString() || "";
     }
-    if (priceRef.current) {
+    if (priceRef.current && priceRef.current.value === "") {
       priceRef.current.value = filters.price_aed?.toString() || "";
     }
-  }, []); // Empty dependency array - only runs once on mount
+  }, []); // Only run once on mount
 
   // Fetch dynamic filter options from the database
   const { data: filterOptions = {} } = useQuery({
