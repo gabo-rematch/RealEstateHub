@@ -25,13 +25,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pageSize = 50
       } = req.query;
 
-      // Handle multi-select parameters properly
+      // Handle multi-select parameters properly, including comma-separated values
       const bedrooms = req.query.bedrooms ? 
-        (Array.isArray(req.query.bedrooms) ? req.query.bedrooms : [req.query.bedrooms]) : [];
+        (Array.isArray(req.query.bedrooms) ? req.query.bedrooms : [req.query.bedrooms]).flatMap(b => b.toString().split(',')) : [];
       const communities = req.query.communities ? 
-        (Array.isArray(req.query.communities) ? req.query.communities : [req.query.communities]) : [];
+        (Array.isArray(req.query.communities) ? req.query.communities : [req.query.communities]).flatMap(c => c.toString().split(',')) : [];
       const property_type = req.query.property_type ? 
-        (Array.isArray(req.query.property_type) ? req.query.property_type : [req.query.property_type]) : [];
+        (Array.isArray(req.query.property_type) ? req.query.property_type : [req.query.property_type]).flatMap(p => p.toString().split(',')) : [];
 
       // Always use Supabase query builder when credentials are available
       const useSupabase = process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY;

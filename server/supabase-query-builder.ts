@@ -131,11 +131,14 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
     }
   }
 
-  // Handle property types using contains operator
+  // Handle property types using array overlap filtering
   if (filters.property_type && filters.property_type.length > 0) {
     const validTypes = filters.property_type.filter(t => t && t !== 'null');
     if (validTypes.length > 0) {
-      const typeConditions = validTypes.map(t => `data->property_type.cs.["${t}"]`);
+      // Create separate conditions for each property type
+      const typeConditions = validTypes.map(type => 
+        `data->property_type.cs.${JSON.stringify([type])}`
+      );
       query = query.or(typeConditions.join(','));
     }
   }
