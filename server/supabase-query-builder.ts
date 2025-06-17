@@ -31,23 +31,57 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
 
   console.log('🔍 Query filters received:', JSON.stringify(filters, null, 2));
 
-  // Debug: Check for sample client_request data with bedrooms=1 and property_type=apartment
-  if (filters.unit_kind === 'client_request' && filters.bedrooms?.includes('1') && filters.property_type?.includes('apartment')) {
-    console.log('🔍 DEBUG: Looking for client_request with bedrooms=1 and property_type=apartment');
+  // Build a single complex filter string to handle all conditions with proper AND/OR logic
+  let filterConditions: string[] = [];
+
+  // Basic filters (always AND logic)
+  if (filters.unit_kind) {
+    filterConditions.push(`data->>kind.eq.${filters.unit_kind}`);
+  }
+
+  if (filters.transaction_type) {
+    filterConditions.push(`data->>transaction_type.eq.${filters.transaction_type}`);
+  }
+
+  // Bedrooms filter with proper OR logic within the condition
+  if (filters.bedrooms && filters.bedrooms.length > 0) {
+    const bedroomNumbers = filters.bedrooms.map(b => parseInt(b)).filter(n => !isNaN(n));
+    console.log('🛏️ Bedroom numbers to filter:', bedroomNumbers);
     
-    // First, let's see what client_request records exist
-    const debugQuery = await supabase
-      .from('inventory_unit_preference')
-      .select('data')
-      .eq('data->>kind', 'client_request')
-      .eq('data->>transaction_type', 'sale')
-      .limit(5);
+    if (bedroomNumbers.length > 0) {
+      let bedroomCondition: string;
+      
+      if (filters.unit_kind === 'client_request') {
+        // For client_request, bedrooms is an array
+        const arrayChecks = bedroomNumbers.map(n => `data->bedrooms.cs.[${n}]`);
+        bedroomCondition = `(${arrayChecks.join(',')},data->bedrooms.is.null,data->bedrooms.cs.[111])`;
+      } else if (filters.unit_kind === 'listing') {
+        // For listings, bedrooms is a scalar
+        const scalarChecks = bedroomNumbers.map(n => `data->>bedrooms.eq.${n}`);
+        bedroomCondition = `(${scalarChecks.join(',')},data->>bedrooms.is.null,data->>bedrooms.eq.111)`;
+      } else {
+        // When no kind specified, handle both formats
+        const scalarChecks = bedroomNumbers.map(n => `data->>bedrooms.eq.${n}`);
+        const arrayChecks = bedroomNumbers.map(n => `data->bedrooms.cs.[${n}]`);
+        bedroomCondition = `(${scalarChecks.join(',')},${arrayChecks.join(',')},data->>bedrooms.is.null,data->bedrooms.is.null,data->>bedrooms.eq.111,data->bedrooms.cs.[111])`;
+      }
+      
+      console.log('🛏️ Bedroom filter condition:', bedroomCondition);
+      filterConditions.push(`or${bedroomCondition}`);
+    }
+  }
+
+  // Property type filter with proper OR logic within the condition  
+  if (filters.property_type && filters.property_type.length > 0) {
+    const validTypes = filters.property_type.filter(t => t && t !== 'null');
+    console.log('🏠 Property types to filter:', validTypes);
     
-    console.log('🔍 Sample client_request sale records:', debugQuery.data?.map(r => ({
-      bedrooms: r.data.bedrooms,
-      property_type: r.data.property_type,
-      transaction_type: r.data.transaction_type
-    })));
+    if (validTypes.length > 0) {
+      const typeChecks = validTypes.map(t => `data->property_type.cs.["${t}"]`);
+      const propertyTypeCondition = `(${typeChecks.join(',')})`;
+      console.log('🏠 Property type filter condition:', propertyTypeCondition);
+      filterConditions.push(`or${propertyTypeCondition}`);
+    }
   }
 
   // Start with base query
@@ -55,44 +89,18 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     .from('inventory_unit_preference')
     .select('pk, id, data, updated_at, inventory_unit_pk');
 
-  // Apply filters using PostgREST filter syntax
-  if (filters.unit_kind) {
-    query = query.eq('data->>kind', filters.unit_kind);
-  }
-
-  if (filters.transaction_type) {
-    query = query.eq('data->>transaction_type', filters.transaction_type);
-  }
-
-  // Handle bedrooms filter (different formats for listing vs client_request)
-  // Include null values and treat 111 as null/unknown for bedrooms
-  if (filters.bedrooms && filters.bedrooms.length > 0) {
-    const bedroomNumbers = filters.bedrooms.map(b => parseInt(b)).filter(n => !isNaN(n));
-    console.log('🛏️ Bedroom numbers to filter:', bedroomNumbers);
-    
-    if (bedroomNumbers.length > 0) {
-      if (filters.unit_kind === 'client_request') {
-        // For client_request, bedrooms is an array - check if array contains any of the selected bedrooms
-        const arrayConditions = bedroomNumbers.map(n => `data->bedrooms.cs.[${n}]`).join(',');
-        const bedroomFilter = `${arrayConditions},data->bedrooms.is.null,data->bedrooms.cs.[111]`;
-        console.log('🔍 Client request bedroom filter:', bedroomFilter);
-        query = query.or(bedroomFilter);
-      } else if (filters.unit_kind === 'listing') {
-        // For listings, bedrooms is typically a scalar value
-        const scalarConditions = bedroomNumbers.map(n => `data->>bedrooms.eq.${n}`).join(',');
-        const bedroomFilter = `${scalarConditions},data->>bedrooms.is.null,data->>bedrooms.eq.111`;
-        console.log('🔍 Listing bedroom filter:', bedroomFilter);
-        query = query.or(bedroomFilter);
-      } else {
-        // When no kind is specified, handle both formats
-        const scalarConditions = bedroomNumbers.map(n => `data->>bedrooms.eq.${n}`).join(',');
-        const arrayConditions = bedroomNumbers.map(n => `data->bedrooms.cs.[${n}]`).join(',');
-        const bedroomFilter = `${scalarConditions},${arrayConditions},data->>bedrooms.is.null,data->bedrooms.is.null,data->>bedrooms.eq.111,data->bedrooms.cs.[111]`;
-        console.log('🔍 Mixed bedroom filter:', bedroomFilter);
-        query = query.or(bedroomFilter);
+  // Apply all filters
+  filterConditions.forEach(condition => {
+    if (condition.startsWith('or(')) {
+      query = query.or(condition.substring(2)); // Remove 'or' prefix
+    } else {
+      // Handle basic eq filters
+      const [field, operator, value] = condition.split('.');
+      if (operator === 'eq') {
+        query = query.eq(field, value);
       }
     }
-  }
+  });
 
   // Handle communities filter (different field names)
   if (filters.communities && filters.communities.length > 0) {
@@ -115,14 +123,22 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     }
   }
 
-  // Handle property types
+  // Handle property types - use direct contains check for each type
   if (filters.property_type && filters.property_type.length > 0) {
     const validTypes = filters.property_type.filter(t => t && t !== 'null');
     console.log('🏠 Property types to filter:', validTypes);
     if (validTypes.length > 0) {
-      const orConditions = validTypes.map(t => `data->property_type.cs.["${t}"]`).join(',');
-      console.log('🔍 Property type filter:', orConditions);
-      query = query.or(orConditions);
+      // For multiple property types, we need ANY of them to match (OR logic within property types)
+      if (validTypes.length === 1) {
+        // Single property type - use direct filter
+        console.log('🔍 Single property type filter:', `data->property_type.cs.[${validTypes[0]}]`);
+        query = query.filter('data->property_type', 'cs', `[${validTypes[0]}]`);
+      } else {
+        // Multiple property types - use OR logic
+        const orConditions = validTypes.map(t => `data->property_type.cs.["${t}"]`).join(',');
+        console.log('🔍 Multiple property type filter:', orConditions);
+        query = query.or(orConditions);
+      }
     }
   }
 
