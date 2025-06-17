@@ -507,9 +507,8 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
               <Label className="block text-sm font-medium text-gray-700 mb-2">
                 Listing Price (AED)
               </Label>
-              <Input
+              <NumberInput
                 ref={priceRef}
-                type="text"
                 placeholder="e.g., 750,000"
                 onBlur={applyNumberInputs}
               />
@@ -520,15 +519,13 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 Budget Range (AED)
               </Label>
               <div className="grid grid-cols-2 gap-2 mb-2">
-                <Input
+                <NumberInput
                   ref={budgetMinRef}
-                  type="text"
                   placeholder="Min (e.g., 100,000)"
                   onBlur={applyNumberInputs}
                 />
-                <Input
+                <NumberInput
                   ref={budgetMaxRef}
-                  type="text"
                   placeholder="Max (e.g., 1,000,000)"
                   onBlur={applyNumberInputs}
                 />
