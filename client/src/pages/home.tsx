@@ -67,14 +67,13 @@ export default function Home() {
       
       const data = await response.json();
       
-      // Deduplicate identical units based on key properties
+      // Deduplicate properties with same message body AND same agent phone
       const uniqueProperties = data.reduce((acc: SupabaseProperty[], current: SupabaseProperty) => {
         const isDuplicate = acc.some(prop => 
           prop.message_body_raw === current.message_body_raw &&
-          prop.kind === current.kind &&
-          prop.communities?.[0] === current.communities?.[0] &&
-          prop.bedrooms?.[0] === current.bedrooms?.[0] &&
-          prop.area_sqft === current.area_sqft
+          prop.agent_phone === current.agent_phone &&
+          prop.message_body_raw && // Only deduplicate if message body exists
+          prop.agent_phone // Only deduplicate if agent phone exists
         );
         
         if (!isDuplicate) {
