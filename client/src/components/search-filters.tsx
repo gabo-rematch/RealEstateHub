@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -237,8 +237,6 @@ function FilterChips({ filters, onRemoveFilter, onClearAll }: FilterChipsProps) 
 export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isLoading }: SearchFiltersProps) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const isMobile = useIsMobile();
-  
-
 
   // Fetch dynamic filter options from the database
   const { data: filterOptions = {} } = useQuery({
@@ -380,16 +378,16 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
             </Label>
             <div className="grid grid-cols-2 gap-2">
               <Input
-                type="number"
-                placeholder="1000"
-                value={filters.area_sqft_min || ""}
-                onChange={(e) => updateFilter('area_sqft_min', e.target.value ? Number(e.target.value) : undefined)}
+                type="text"
+                placeholder="Min (e.g., 1,000)"
+                value={filters.area_sqft_min ? formatNumberWithCommas(filters.area_sqft_min) : ""}
+                onChange={(e) => updateFilter('area_sqft_min', parseNumberFromFormatted(e.target.value))}
               />
               <Input
-                type="number"
-                placeholder="5000"
-                value={filters.area_sqft_max || ""}
-                onChange={(e) => updateFilter('area_sqft_max', e.target.value ? Number(e.target.value) : undefined)}
+                type="text"
+                placeholder="Max (e.g., 5,000)"
+                value={filters.area_sqft_max ? formatNumberWithCommas(filters.area_sqft_max) : ""}
+                onChange={(e) => updateFilter('area_sqft_max', parseNumberFromFormatted(e.target.value))}
               />
             </div>
           </div>
@@ -415,10 +413,10 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 Listing Price (AED)
               </Label>
               <Input
-                type="number"
-                placeholder="750000"
-                value={filters.price_aed || ""}
-                onChange={(e) => updateFilter('price_aed', e.target.value ? Number(e.target.value) : undefined)}
+                type="text"
+                placeholder="e.g., 750,000"
+                value={filters.price_aed ? formatNumberWithCommas(filters.price_aed) : ""}
+                onChange={(e) => updateFilter('price_aed', parseNumberFromFormatted(e.target.value))}
               />
             </div>
           ) : (
@@ -428,16 +426,16 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
               </Label>
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <Input
-                  type="number"
-                  placeholder="100000"
-                  value={filters.budget_min || ""}
-                  onChange={(e) => updateFilter('budget_min', e.target.value ? Number(e.target.value) : undefined)}
+                  type="text"
+                  placeholder="Min (e.g., 100,000)"
+                  value={filters.budget_min ? formatNumberWithCommas(filters.budget_min) : ""}
+                  onChange={(e) => updateFilter('budget_min', parseNumberFromFormatted(e.target.value))}
                 />
                 <Input
-                  type="number"
-                  placeholder="1000000"
-                  value={filters.budget_max || ""}
-                  onChange={(e) => updateFilter('budget_max', e.target.value ? Number(e.target.value) : undefined)}
+                  type="text"
+                  placeholder="Max (e.g., 1,000,000)"
+                  value={filters.budget_max ? formatNumberWithCommas(filters.budget_max) : ""}
+                  onChange={(e) => updateFilter('budget_max', parseNumberFromFormatted(e.target.value))}
                 />
               </div>
             </div>

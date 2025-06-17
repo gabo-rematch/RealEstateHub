@@ -23,13 +23,12 @@ export default function Home() {
   });
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
   const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [hasSearched, setHasSearched] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [sortBy, setSortBy] = useState("updated_at_desc");
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [searchTrigger, setSearchTrigger] = useState(0);
-  const [initialLoad, setInitialLoad] = useState(true);
 
   // Fetch properties based on filters
   const { data: properties = [], isLoading, error, refetch } = useQuery({
@@ -87,7 +86,7 @@ export default function Home() {
 
       return uniqueProperties;
     },
-    enabled: initialLoad,
+    enabled: true,
   });
 
 
@@ -95,8 +94,7 @@ export default function Home() {
   const handleSearch = () => {
     setCurrentPage(0); // Reset to first page when searching
     setHasSearched(true); // Mark that a search has been performed
-    setInitialLoad(false); // Disable automatic loading after first search
-    refetch(); // Trigger a new query manually
+    setSearchTrigger(prev => prev + 1); // Trigger a new query
   };
 
   
@@ -306,7 +304,7 @@ export default function Home() {
 
           {/* Property Results */}
           <div className="lg:col-span-8 xl:col-span-9 mt-6 lg:mt-0">
-            {(hasSearched || properties.length > 0) ? (
+            {hasSearched ? (
               <>
                 {/* Keyword Search Bar */}
                 <div className="mb-6">
