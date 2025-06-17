@@ -100,14 +100,17 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
   if (filters.communities && filters.communities.length > 0) {
     console.log('🏘️ Applying communities filter:', filters.communities);
     
-    // Use textSearch for communities to avoid JSON parsing issues with special characters
+    // Use ilike on the raw JSONB data to match community names without JSON parsing
     if (filters.communities.length === 1) {
       const community = filters.communities[0];
-      // Use contains operator which is more robust for JSON arrays
-      query = query.contains('data->communities', [community]);
+      // Search for the community name anywhere in the JSONB data
+      query = query.ilike('data', `%${community}%`);
     } else {
-      // For multiple communities, use overlaps operator
-      query = query.overlaps('data->communities', filters.communities);
+      // For multiple communities, use OR with ilike patterns
+      const orConditions = filters.communities.map(community => 
+        `data.ilike.%${encodeURIComponent(community)}%`
+      ).join(',');
+      query = query.or(orConditions);
     }
   }
 
