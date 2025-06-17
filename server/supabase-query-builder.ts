@@ -87,7 +87,7 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
     query = query.eq('data->>transaction_type', filters.transaction_type);
   }
 
-  // Handle bedrooms filter using array overlap for both scalar and array formats
+  // Handle bedrooms filter for both scalar and array formats
   if (filters.bedrooms && filters.bedrooms.length > 0) {
     const bedroomNumbers = filters.bedrooms.map(b => parseInt(b)).filter(n => !isNaN(n));
     
@@ -98,8 +98,8 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
       // For scalar bedrooms (common in listings)
       bedroomConditions.push(...bedroomNumbers.map(n => `data->>bedrooms.eq.${n}`));
       
-      // For array bedrooms (common in client_requests) - use overlap operator
-      bedroomConditions.push(`data->bedrooms.ov.{${bedroomNumbers.join(',')}}`);
+      // For array bedrooms (common in client_requests) - use contains operator
+      bedroomConditions.push(...bedroomNumbers.map(n => `data->bedrooms.cs.[${n}]`));
       
       // Include null handling
       bedroomConditions.push('data->>bedrooms.is.null', 'data->bedrooms.is.null');
@@ -113,23 +113,27 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
     const validCommunities = filters.communities.filter(c => c && c !== 'null');
     
     if (validCommunities.length > 0) {
-      const communityConditions = [];
-      
-      // For scalar community field (listings)
-      communityConditions.push(`data->>community.in.(${validCommunities.map(c => `"${c}"`).join(',')})`);
-      
-      // For array communities field (client_requests) - use overlap operator
-      communityConditions.push(`data->communities.ov.{${validCommunities.map(c => `"${c}"`).join(',')}}`);
-      
-      query = query.or(communityConditions.join(','));
+      // Use a simpler approach with individual filters
+      if (validCommunities.length === 1) {
+        const community = validCommunities[0];
+        query = query.or(`data->>community.eq."${community}",data->communities.cs.["${community}"]`);
+      } else {
+        // For multiple communities, check each one individually
+        const orConditions = validCommunities.flatMap(community => [
+          `data->>community.eq."${community}"`,
+          `data->communities.cs.["${community}"]`
+        ]);
+        query = query.or(orConditions.join(','));
+      }
     }
   }
 
-  // Handle property types using array overlap
+  // Handle property types using contains operator
   if (filters.property_type && filters.property_type.length > 0) {
     const validTypes = filters.property_type.filter(t => t && t !== 'null');
     if (validTypes.length > 0) {
-      query = query.or(`data->property_type.ov.{${validTypes.map(t => `"${t}"`).join(',')}}`);
+      const typeConditions = validTypes.map(t => `data->property_type.cs.["${t}"]`);
+      query = query.or(typeConditions.join(','));
     }
   }
 
@@ -203,6 +207,8 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
   const { data, error } = await query;
 
   if (error) {
+    console.error('PostgREST query error:', error);
+    console.error('Query details:', query);
     throw new Error(`Supabase query error: ${error.message}`);
   }
 
