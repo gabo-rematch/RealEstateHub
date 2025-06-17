@@ -72,7 +72,7 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     
     if (bedroomNumbers.length > 0) {
       if (filters.unit_kind === 'client_request') {
-        // For client_request, bedrooms is an array - use contains operator
+        // For client_request, bedrooms is an array - check if array contains any of the selected bedrooms
         const arrayConditions = bedroomNumbers.map(n => `data->bedrooms.cs.[${n}]`).join(',');
         const bedroomFilter = `${arrayConditions},data->bedrooms.is.null,data->bedrooms.cs.[111]`;
         console.log('🔍 Client request bedroom filter:', bedroomFilter);
