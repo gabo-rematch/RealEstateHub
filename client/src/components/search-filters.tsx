@@ -468,18 +468,16 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
               Area (sq ft)
             </Label>
             <div className="grid grid-cols-2 gap-2">
-              <Input
+              <NumberInput
                 key={`area-min-${inputKey}`}
                 ref={areaMinRef}
-                type="text"
                 placeholder="Min (e.g., 1,000)"
                 defaultValue={filters.area_sqft_min?.toString() || ""}
                 onBlur={applyNumberInputs}
               />
-              <Input
+              <NumberInput
                 key={`area-max-${inputKey}`}
                 ref={areaMaxRef}
-                type="text"
                 placeholder="Max (e.g., 5,000)"
                 defaultValue={filters.area_sqft_max?.toString() || ""}
                 onBlur={applyNumberInputs}
@@ -507,10 +505,9 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
               <Label className="block text-sm font-medium text-gray-700 mb-2">
                 Listing Price (AED)
               </Label>
-              <Input
+              <NumberInput
                 key={`price-${inputKey}`}
                 ref={priceRef}
-                type="text"
                 placeholder="e.g., 750,000"
                 defaultValue={filters.price_aed?.toString() || ""}
                 onBlur={applyNumberInputs}
@@ -522,18 +519,16 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 Budget Range (AED)
               </Label>
               <div className="grid grid-cols-2 gap-2 mb-2">
-                <Input
+                <NumberInput
                   key={`budget-min-${inputKey}`}
                   ref={budgetMinRef}
-                  type="text"
                   placeholder="Min (e.g., 100,000)"
                   defaultValue={filters.budget_min?.toString() || ""}
                   onBlur={applyNumberInputs}
                 />
-                <Input
+                <NumberInput
                   key={`budget-max-${inputKey}`}
                   ref={budgetMaxRef}
-                  type="text"
                   placeholder="Max (e.g., 1,000,000)"
                   defaultValue={filters.budget_max?.toString() || ""}
                   onBlur={applyNumberInputs}
