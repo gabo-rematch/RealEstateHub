@@ -343,6 +343,7 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
     }
 
     onFiltersChange({ ...filters, ...updates });
+    return updates; // Return updates for chaining
   }, [filters, onFiltersChange]);
 
   const removeFilter = (key: keyof SearchFilters, value?: string) => {
@@ -626,9 +627,13 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
             </Button>
             <Button 
               onClick={() => {
+                // Apply number inputs first
                 applyNumberInputs();
-                onSearch();
-                setIsDrawerOpen(false); // Close drawer after applying filters
+                // Use setTimeout to ensure state updates complete before closing drawer
+                setTimeout(() => {
+                  onSearch();
+                  setIsDrawerOpen(false);
+                }, 0);
               }}
               disabled={isLoading}
               className="px-8"
@@ -658,9 +663,13 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 </Button>
                 <Button 
                   onClick={() => {
+                    // Apply number inputs first
                     applyNumberInputs();
-                    onSearch();
-                    setIsDrawerOpen(false);
+                    // Use setTimeout to ensure state updates complete before closing drawer
+                    setTimeout(() => {
+                      onSearch();
+                      setIsDrawerOpen(false);
+                    }, 0);
                   }}
                   disabled={isLoading}
                   className="flex-1"
