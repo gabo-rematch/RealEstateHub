@@ -1,7 +1,7 @@
 import { forwardRef } from "react";
 import { Input } from "@/components/ui/input";
 
-interface NumberInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface NumberInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'defaultValue'> {
   onBlur?: () => void;
 }
 

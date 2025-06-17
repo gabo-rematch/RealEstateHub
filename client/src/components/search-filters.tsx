@@ -274,41 +274,24 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
   const budgetMaxRef = useRef<HTMLInputElement>(null);
   const priceRef = useRef<HTMLInputElement>(null);
 
-  // Track if we just applied filters to avoid overwriting user input
-  const justAppliedFiltersRef = useRef(false);
-
-  // Initialize input values when component mounts or when filters are cleared externally
+  // Initialize input values only once when component mounts
   useEffect(() => {
-    // Only update if we just applied filters or if the field is empty
-    if (justAppliedFiltersRef.current || (areaMinRef.current && areaMinRef.current.value === "")) {
-      if (areaMinRef.current) {
-        areaMinRef.current.value = filters.area_sqft_min?.toString() || "";
-      }
+    if (areaMinRef.current) {
+      areaMinRef.current.value = filters.area_sqft_min?.toString() || "";
     }
-    if (justAppliedFiltersRef.current || (areaMaxRef.current && areaMaxRef.current.value === "")) {
-      if (areaMaxRef.current) {
-        areaMaxRef.current.value = filters.area_sqft_max?.toString() || "";
-      }
+    if (areaMaxRef.current) {
+      areaMaxRef.current.value = filters.area_sqft_max?.toString() || "";
     }
-    if (justAppliedFiltersRef.current || (budgetMinRef.current && budgetMinRef.current.value === "")) {
-      if (budgetMinRef.current) {
-        budgetMinRef.current.value = filters.budget_min?.toString() || "";
-      }
+    if (budgetMinRef.current) {
+      budgetMinRef.current.value = filters.budget_min?.toString() || "";
     }
-    if (justAppliedFiltersRef.current || (budgetMaxRef.current && budgetMaxRef.current.value === "")) {
-      if (budgetMaxRef.current) {
-        budgetMaxRef.current.value = filters.budget_max?.toString() || "";
-      }
+    if (budgetMaxRef.current) {
+      budgetMaxRef.current.value = filters.budget_max?.toString() || "";
     }
-    if (justAppliedFiltersRef.current || (priceRef.current && priceRef.current.value === "")) {
-      if (priceRef.current) {
-        priceRef.current.value = filters.price_aed?.toString() || "";
-      }
+    if (priceRef.current) {
+      priceRef.current.value = filters.price_aed?.toString() || "";
     }
-    
-    // Reset the flag after updating
-    justAppliedFiltersRef.current = false;
-  }, [filters.area_sqft_min, filters.area_sqft_max, filters.budget_min, filters.budget_max, filters.price_aed]);
+  }, []); // Empty dependency array - only runs once on mount
 
   // Fetch dynamic filter options from the database
   const { data: filterOptions = {} } = useQuery({
@@ -329,6 +312,15 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
   // Helper function to apply all pending number input changes immediately
   const applyNumberInputs = useCallback(() => {
     const updates: Partial<SearchFilters> = {};
+    
+    // Debug: Log current input values
+    console.log('Applying number inputs:', {
+      areaMin: areaMinRef.current?.value,
+      areaMax: areaMaxRef.current?.value,
+      budgetMin: budgetMinRef.current?.value,
+      budgetMax: budgetMaxRef.current?.value,
+      price: priceRef.current?.value
+    });
     
     if (areaMinRef.current?.value) {
       const parsed = parseInt(areaMinRef.current.value.replace(/,/g, ''));
@@ -365,8 +357,7 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
       updates.price_aed = undefined;
     }
 
-    // Set flag to indicate we're applying filters
-    justAppliedFiltersRef.current = true;
+    console.log('Updates to apply:', updates);
     onFiltersChange({ ...filters, ...updates });
   }, [filters, onFiltersChange]);
 
