@@ -64,14 +64,16 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     }
   }
 
-  // Handle property types - Apply as individual contains checks
+  // Handle property types - Different logic for listings vs client_requests
   if (filters.property_type && filters.property_type.length > 0) {
     const validTypes = filters.property_type.filter(t => t && t !== 'null');
     console.log('🏠 Property types to filter:', validTypes);
     
     if (validTypes.length > 0 && validTypes.length === 1) {
       const propertyType = validTypes[0];
-      console.log('🔍 Applying contains filter for property_type:', propertyType);
+      
+      // For all property types, use array contains logic since property_type appears to be arrays
+      console.log('🔍 Applying property_type contains filter:', propertyType);
       query = query.filter('data->property_type', 'cs', JSON.stringify([propertyType]));
     }
   }
@@ -146,14 +148,24 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
   }
 
   // Debug: Log a sample of the returned data to understand structure
-  if (data && data.length > 0 && filters.unit_kind === 'client_request' && filters.bedrooms?.includes('1')) {
-    console.log('🔍 Sample returned data structure:', data.slice(0, 2).map(item => ({
-      pk: item.pk,
-      bedrooms: item.data?.bedrooms,
-      property_type: item.data?.property_type,
-      kind: item.data?.kind,
-      transaction_type: item.data?.transaction_type
-    })));
+  if (data && data.length > 0) {
+    if (filters.unit_kind === 'client_request' && filters.bedrooms?.includes('1')) {
+      console.log('🔍 Sample client_request data:', data.slice(0, 2).map(item => ({
+        pk: item.pk,
+        bedrooms: item.data?.bedrooms,
+        property_type: item.data?.property_type,
+        kind: item.data?.kind,
+        transaction_type: item.data?.transaction_type
+      })));
+    } else if (filters.unit_kind === 'listing' && filters.property_type?.length > 0) {
+      console.log('🔍 Sample listing data with property_type:', data.slice(0, 2).map(item => ({
+        pk: item.pk,
+        bedrooms: item.data?.bedrooms,
+        property_type: item.data?.property_type,
+        kind: item.data?.kind,
+        transaction_type: item.data?.transaction_type
+      })));
+    }
   }
 
   console.log(`Query returned ${data?.length || 0} properties`);
