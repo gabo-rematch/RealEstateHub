@@ -180,7 +180,7 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     query = query.ilike('data->>message_body_raw', `%${filters.keyword_search}%`);
   }
 
-  // Static sanity checks - ensure required fields exist
+  // Static sanity checks - ensure required fields exist (removed communities check)
   query = query
     .not('data->bedrooms', 'is', null)
     .not('data->>kind', 'is', null)
