@@ -502,7 +502,7 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 Deal Type
               </Label>
               <Select
-                value={filters.is_distressed_deal ? 'distressed' : filters.is_distressed_deal === false ? 'market' : ''}
+                value={filters.is_distressed_deal ? 'distressed' : filters.is_distressed_deal === false ? 'market' : 'any'}
                 onValueChange={(value) => {
                   if (value === 'distressed') {
                     updateFilter('is_distressed_deal', true);
