@@ -633,6 +633,7 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
               onClick={() => {
                 applyNumberInputs();
                 onSearch();
+                setIsDrawerOpen(false); // Close drawer after applying filters
               }}
               disabled={isLoading}
               className="px-8"
