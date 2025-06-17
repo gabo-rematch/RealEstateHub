@@ -204,6 +204,34 @@ function FilterChips({ filters, onRemoveFilter, onClearAll }: FilterChipsProps) 
       activeFilters.push({ key: 'property_type', label: type, value: type });
     });
   }
+  if (filters.is_off_plan === true) {
+    activeFilters.push({ key: 'is_off_plan', label: 'Off-plan only', value: 'off-plan' });
+  } else if (filters.is_off_plan === false) {
+    activeFilters.push({ key: 'is_off_plan', label: 'Ready properties', value: 'ready' });
+  }
+  if (filters.is_distressed_deal === true) {
+    activeFilters.push({ key: 'is_distressed_deal', label: 'Distressed deals', value: 'distressed' });
+  } else if (filters.is_distressed_deal === false) {
+    activeFilters.push({ key: 'is_distressed_deal', label: 'Market deals', value: 'market' });
+  }
+  if (filters.budget_min) {
+    activeFilters.push({ key: 'budget_min', label: `Min: ${formatNumberWithCommas(filters.budget_min)}`, value: 'budget_min' });
+  }
+  if (filters.budget_max) {
+    activeFilters.push({ key: 'budget_max', label: `Max: ${formatNumberWithCommas(filters.budget_max)}`, value: 'budget_max' });
+  }
+  if (filters.price_aed) {
+    activeFilters.push({ key: 'price_aed', label: `Price: ${formatNumberWithCommas(filters.price_aed)}`, value: 'price_aed' });
+  }
+  if (filters.area_sqft_min) {
+    activeFilters.push({ key: 'area_sqft_min', label: `Min Area: ${filters.area_sqft_min} sqft`, value: 'area_sqft_min' });
+  }
+  if (filters.area_sqft_max) {
+    activeFilters.push({ key: 'area_sqft_max', label: `Max Area: ${filters.area_sqft_max} sqft`, value: 'area_sqft_max' });
+  }
+  if (filters.keyword_search) {
+    activeFilters.push({ key: 'keyword_search', label: `"${filters.keyword_search}"`, value: 'keyword_search' });
+  }
 
   if (activeFilters.length === 0) return null;
 
@@ -441,24 +469,59 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
             </div>
           )}
           
-          <div>
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="off-plan"
-                  checked={filters.is_off_plan === true}
-                  onCheckedChange={(checked) => updateFilter('is_off_plan', checked ? true : undefined)}
-                />
-                <Label htmlFor="off-plan" className="text-sm">Off-plan properties</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="distressed"
-                  checked={filters.is_distressed_deal === true}
-                  onCheckedChange={(checked) => updateFilter('is_distressed_deal', checked ? true : undefined)}
-                />
-                <Label htmlFor="distressed" className="text-sm">Distressed deals</Label>
-              </div>
+          <div className="space-y-4">
+            <div>
+              <Label className="block text-sm font-medium text-gray-700 mb-2">
+                Property Status
+              </Label>
+              <Select
+                value={filters.is_off_plan ? 'off-plan' : filters.is_off_plan === false ? 'ready' : 'any'}
+                onValueChange={(value) => {
+                  if (value === 'off-plan') {
+                    updateFilter('is_off_plan', true);
+                  } else if (value === 'ready') {
+                    updateFilter('is_off_plan', false);
+                  } else {
+                    updateFilter('is_off_plan', undefined);
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Any status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any status</SelectItem>
+                  <SelectItem value="off-plan">Off-plan only</SelectItem>
+                  <SelectItem value="ready">Ready properties only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="block text-sm font-medium text-gray-700 mb-2">
+                Deal Type
+              </Label>
+              <Select
+                value={filters.is_distressed_deal ? 'distressed' : filters.is_distressed_deal === false ? 'market' : ''}
+                onValueChange={(value) => {
+                  if (value === 'distressed') {
+                    updateFilter('is_distressed_deal', true);
+                  } else if (value === 'market') {
+                    updateFilter('is_distressed_deal', false);
+                  } else {
+                    updateFilter('is_distressed_deal', undefined);
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Any deal type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Any deal type</SelectItem>
+                  <SelectItem value="distressed">Distressed deals only</SelectItem>
+                  <SelectItem value="market">Market deals only</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>

@@ -57,39 +57,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // Transform Supabase results to match expected format
-        const transformedResults = results.map((row: any) => ({
-          pk: row.pk,
-          id: row.id,
-          kind: row.data?.kind,
-          transaction_type: row.data?.transaction_type,
-          bedrooms: row.data?.bedrooms || [],
-          property_type: row.data?.property_type || [],
-          communities: row.data?.communities || [row.data?.community].filter(Boolean),
-          price_aed: row.data?.price_aed,
-          budget_max_aed: row.data?.budget_max_aed,
-          budget_min_aed: row.data?.budget_min_aed,
-          area_sqft: row.data?.area_sqft,
-          message_body_raw: row.data?.message_body_raw,
-          furnishing: row.data?.furnishing,
-          is_urgent: row.data?.is_urgent,
-          is_agent_covered: row.data?.is_agent_covered,
-          bathrooms: row.data?.bathrooms || [],
-          location_raw: row.data?.location_raw,
-          other_details: row.data?.other_details,
-          has_maid_bedroom: row.data?.has_maid_bedroom,
-          is_direct: row.data?.is_direct,
-          mortgage_or_cash: row.data?.mortgage_or_cash,
-          is_distressed_deal: row.data?.is_distressed_deal,
-          is_off_plan: row.data?.is_off_plan,
-          is_mortgage_approved: row.data?.is_mortgage_approved,
-          is_community_agnostic: row.data?.is_community_agnostic,
-          developers: row.data?.developers || [],
-          whatsapp_participant: row.data?.whatsapp_participant,
-          agent_phone: row.data?.agent_phone,
-          groupJID: row.data?.groupJID,
-          evolution_instance_id: row.data?.evolution_instance_id,
-          updated_at: row.updated_at
-        }));
+        const transformedResults = results.map((row: any) => {
+          // If data comes from RPC function, it's already in the correct format
+          if (row.kind && row.transaction_type && row.bedrooms !== undefined) {
+            return {
+              pk: row.pk,
+              id: row.id,
+              kind: row.kind,
+              transaction_type: row.transaction_type,
+              bedrooms: row.bedrooms || [],
+              property_type: row.property_type || [],
+              communities: row.communities || [],
+              price_aed: row.price_aed,
+              budget_max_aed: row.budget_max_aed,
+              budget_min_aed: row.budget_min_aed,
+              area_sqft: row.area_sqft,
+              message_body_raw: row.message_body_raw,
+              furnishing: row.furnishing,
+              is_urgent: row.is_urgent,
+              is_agent_covered: row.is_agent_covered,
+              bathrooms: row.bathrooms || [],
+              location_raw: row.location_raw,
+              other_details: row.other_details,
+              has_maid_bedroom: row.has_maid_bedroom,
+              is_direct: row.is_direct,
+              mortgage_or_cash: row.mortgage_or_cash,
+              is_distressed_deal: row.is_distressed_deal,
+              is_off_plan: row.is_off_plan,
+              is_mortgage_approved: row.is_mortgage_approved,
+              is_community_agnostic: row.is_community_agnostic,
+              developers: row.developers || [],
+              whatsapp_participant: row.whatsapp_participant,
+              agent_phone: row.agent_phone,
+              groupJID: row.groupjid, // Note: PostgreSQL returns lowercase field names
+              evolution_instance_id: row.evolution_instance_id,
+              updated_at: row.updated_at
+            };
+          }
+          
+          // Fallback transformation for basic PostgREST results
+          return {
+            pk: row.pk,
+            id: row.id,
+            kind: row.data?.kind,
+            transaction_type: row.data?.transaction_type,
+            bedrooms: row.data?.bedrooms || [],
+            property_type: row.data?.property_type || [],
+            communities: row.data?.communities || [row.data?.community].filter(Boolean),
+            price_aed: row.data?.price_aed,
+            budget_max_aed: row.data?.budget_max_aed,
+            budget_min_aed: row.data?.budget_min_aed,
+            area_sqft: row.data?.area_sqft,
+            message_body_raw: row.data?.message_body_raw,
+            furnishing: row.data?.furnishing,
+            is_urgent: row.data?.is_urgent,
+            is_agent_covered: row.data?.is_agent_covered,
+            bathrooms: row.data?.bathrooms || [],
+            location_raw: row.data?.location_raw,
+            other_details: row.data?.other_details,
+            has_maid_bedroom: row.data?.has_maid_bedroom,
+            is_direct: row.data?.is_direct,
+            mortgage_or_cash: row.data?.mortgage_or_cash,
+            is_distressed_deal: row.data?.is_distressed_deal,
+            is_off_plan: row.data?.is_off_plan,
+            is_mortgage_approved: row.data?.is_mortgage_approved,
+            is_community_agnostic: row.data?.is_community_agnostic,
+            developers: row.data?.developers || [],
+            whatsapp_participant: row.inventory_unit?.agent_details?.whatsapp_participant || row.data?.whatsapp_participant,
+            agent_phone: row.inventory_unit?.agent_details?.agent_phone || row.data?.agent_phone,
+            groupJID: row.inventory_unit?.agent_details?.whatsapp_remote_jid || row.data?.groupJID,
+            evolution_instance_id: row.inventory_unit?.agent_details?.evolution_instance_id || row.data?.evolution_instance_id,
+            updated_at: row.updated_at
+          };
+        });
 
         console.log(`Query returned ${transformedResults.length} properties`);
         res.json(transformedResults);
