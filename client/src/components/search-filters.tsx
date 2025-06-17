@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -275,34 +275,8 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
     price_aed: filters.price_aed?.toString() || "",
   });
 
-  // Debounced update for number inputs
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const updates: Partial<SearchFilters> = {};
-      
-      if (localNumberInputs.area_sqft_min !== (filters.area_sqft_min?.toString() || "")) {
-        updates.area_sqft_min = localNumberInputs.area_sqft_min ? parseInt(localNumberInputs.area_sqft_min.replace(/,/g, '')) : undefined;
-      }
-      if (localNumberInputs.area_sqft_max !== (filters.area_sqft_max?.toString() || "")) {
-        updates.area_sqft_max = localNumberInputs.area_sqft_max ? parseInt(localNumberInputs.area_sqft_max.replace(/,/g, '')) : undefined;
-      }
-      if (localNumberInputs.budget_min !== (filters.budget_min?.toString() || "")) {
-        updates.budget_min = localNumberInputs.budget_min ? parseInt(localNumberInputs.budget_min.replace(/,/g, '')) : undefined;
-      }
-      if (localNumberInputs.budget_max !== (filters.budget_max?.toString() || "")) {
-        updates.budget_max = localNumberInputs.budget_max ? parseInt(localNumberInputs.budget_max.replace(/,/g, '')) : undefined;
-      }
-      if (localNumberInputs.price_aed !== (filters.price_aed?.toString() || "")) {
-        updates.price_aed = localNumberInputs.price_aed ? parseInt(localNumberInputs.price_aed.replace(/,/g, '')) : undefined;
-      }
-
-      if (Object.keys(updates).length > 0) {
-        onFiltersChange({ ...filters, ...updates });
-      }
-    }, 1000); // 1 second debounce
-
-    return () => clearTimeout(timer);
-  }, [localNumberInputs, filters, onFiltersChange]);
+  // No automatic debounced updates - only update on blur or apply button
+  // This prevents queries from running while typing
 
   // Update local state when filters change externally
   useEffect(() => {
@@ -705,7 +679,10 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
               Clear All
             </Button>
             <Button 
-              onClick={onSearch}
+              onClick={() => {
+                applyNumberInputs();
+                onSearch();
+              }}
               disabled={isLoading}
               className="flex-1"
             >
