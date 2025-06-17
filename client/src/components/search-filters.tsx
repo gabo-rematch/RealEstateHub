@@ -267,41 +267,28 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const isMobile = useIsMobile();
 
-  // Use refs to store input values to prevent re-renders from losing focus
-  const areaMinRef = useRef<HTMLInputElement>(null);
-  const areaMaxRef = useRef<HTMLInputElement>(null);
-  const budgetMinRef = useRef<HTMLInputElement>(null);
-  const budgetMaxRef = useRef<HTMLInputElement>(null);
-  const priceRef = useRef<HTMLInputElement>(null);
-
-  // Track the last applied values to prevent unnecessary clearing
-  const lastAppliedValues = useRef({
-    area_sqft_min: filters.area_sqft_min,
-    area_sqft_max: filters.area_sqft_max,
-    budget_min: filters.budget_min,
-    budget_max: filters.budget_max,
-    price_aed: filters.price_aed
+  // Use controlled state for number inputs that persists values
+  const [numberInputs, setNumberInputs] = useState({
+    area_sqft_min: filters.area_sqft_min?.toString() || "",
+    area_sqft_max: filters.area_sqft_max?.toString() || "",
+    budget_min: filters.budget_min?.toString() || "",
+    budget_max: filters.budget_max?.toString() || "",
+    price_aed: filters.price_aed?.toString() || "",
   });
 
-  // Only update input values when component mounts or when explicitly cleared
+  // Only update input state when filters are cleared (not when applied)
   useEffect(() => {
-    // Initialize values on mount
-    if (areaMinRef.current && areaMinRef.current.value === "") {
-      areaMinRef.current.value = filters.area_sqft_min?.toString() || "";
+    // Only clear inputs when all filters are reset
+    if (!filters.area_sqft_min && !filters.area_sqft_max && !filters.budget_min && !filters.budget_max && !filters.price_aed) {
+      setNumberInputs({
+        area_sqft_min: "",
+        area_sqft_max: "",
+        budget_min: "",
+        budget_max: "",
+        price_aed: "",
+      });
     }
-    if (areaMaxRef.current && areaMaxRef.current.value === "") {
-      areaMaxRef.current.value = filters.area_sqft_max?.toString() || "";
-    }
-    if (budgetMinRef.current && budgetMinRef.current.value === "") {
-      budgetMinRef.current.value = filters.budget_min?.toString() || "";
-    }
-    if (budgetMaxRef.current && budgetMaxRef.current.value === "") {
-      budgetMaxRef.current.value = filters.budget_max?.toString() || "";
-    }
-    if (priceRef.current && priceRef.current.value === "") {
-      priceRef.current.value = filters.price_aed?.toString() || "";
-    }
-  }, []); // Only run once on mount
+  }, [filters]);
 
   // Fetch dynamic filter options from the database
   const { data: filterOptions = {} } = useQuery({
@@ -319,57 +306,52 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
     onFiltersChange({ ...filters, [key]: value });
   };
 
+  // Helper function to update individual number inputs
+  const updateNumberInput = (key: keyof typeof numberInputs, value: string) => {
+    setNumberInputs(prev => ({ ...prev, [key]: value }));
+  };
+
   // Helper function to apply all pending number input changes immediately
   const applyNumberInputs = useCallback(() => {
     const updates: Partial<SearchFilters> = {};
     
-    // Debug: Log current input values
-    console.log('Applying number inputs:', {
-      areaMin: areaMinRef.current?.value,
-      areaMax: areaMaxRef.current?.value,
-      budgetMin: budgetMinRef.current?.value,
-      budgetMax: budgetMaxRef.current?.value,
-      price: priceRef.current?.value
-    });
-    
-    if (areaMinRef.current?.value) {
-      const parsed = parseInt(areaMinRef.current.value.replace(/,/g, ''));
+    if (numberInputs.area_sqft_min) {
+      const parsed = parseInt(numberInputs.area_sqft_min.replace(/,/g, ''));
       if (!isNaN(parsed)) updates.area_sqft_min = parsed;
     } else {
       updates.area_sqft_min = undefined;
     }
     
-    if (areaMaxRef.current?.value) {
-      const parsed = parseInt(areaMaxRef.current.value.replace(/,/g, ''));
+    if (numberInputs.area_sqft_max) {
+      const parsed = parseInt(numberInputs.area_sqft_max.replace(/,/g, ''));
       if (!isNaN(parsed)) updates.area_sqft_max = parsed;
     } else {
       updates.area_sqft_max = undefined;
     }
     
-    if (budgetMinRef.current?.value) {
-      const parsed = parseInt(budgetMinRef.current.value.replace(/,/g, ''));
+    if (numberInputs.budget_min) {
+      const parsed = parseInt(numberInputs.budget_min.replace(/,/g, ''));
       if (!isNaN(parsed)) updates.budget_min = parsed;
     } else {
       updates.budget_min = undefined;
     }
     
-    if (budgetMaxRef.current?.value) {
-      const parsed = parseInt(budgetMaxRef.current.value.replace(/,/g, ''));
+    if (numberInputs.budget_max) {
+      const parsed = parseInt(numberInputs.budget_max.replace(/,/g, ''));
       if (!isNaN(parsed)) updates.budget_max = parsed;
     } else {
       updates.budget_max = undefined;
     }
     
-    if (priceRef.current?.value) {
-      const parsed = parseInt(priceRef.current.value.replace(/,/g, ''));
+    if (numberInputs.price_aed) {
+      const parsed = parseInt(numberInputs.price_aed.replace(/,/g, ''));
       if (!isNaN(parsed)) updates.price_aed = parsed;
     } else {
       updates.price_aed = undefined;
     }
 
-    console.log('Updates to apply:', updates);
     onFiltersChange({ ...filters, ...updates });
-  }, [filters, onFiltersChange]);
+  }, [numberInputs, filters, onFiltersChange]);
 
   const removeFilter = (key: keyof SearchFilters, value?: string) => {
     if (key === 'bedrooms' && value) {
@@ -388,11 +370,13 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
 
   const clearAllFilters = () => {
     // Clear all input field values
-    if (areaMinRef.current) areaMinRef.current.value = "";
-    if (areaMaxRef.current) areaMaxRef.current.value = "";
-    if (budgetMinRef.current) budgetMinRef.current.value = "";
-    if (budgetMaxRef.current) budgetMaxRef.current.value = "";
-    if (priceRef.current) priceRef.current.value = "";
+    setNumberInputs({
+      area_sqft_min: "",
+      area_sqft_max: "",
+      budget_min: "",
+      budget_max: "",
+      price_aed: "",
+    });
     
     onFiltersChange({
       unit_kind: '',
@@ -501,14 +485,18 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
               Area (sq ft)
             </Label>
             <div className="grid grid-cols-2 gap-2">
-              <NumberInput
-                ref={areaMinRef}
+              <Input
+                type="text"
                 placeholder="Min (e.g., 1,000)"
+                value={numberInputs.area_sqft_min}
+                onChange={(e) => updateNumberInput('area_sqft_min', e.target.value)}
                 onBlur={applyNumberInputs}
               />
-              <NumberInput
-                ref={areaMaxRef}
+              <Input
+                type="text"
                 placeholder="Max (e.g., 5,000)"
+                value={numberInputs.area_sqft_max}
+                onChange={(e) => updateNumberInput('area_sqft_max', e.target.value)}
                 onBlur={applyNumberInputs}
               />
             </div>
@@ -534,9 +522,11 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
               <Label className="block text-sm font-medium text-gray-700 mb-2">
                 Listing Price (AED)
               </Label>
-              <NumberInput
-                ref={priceRef}
+              <Input
+                type="text"
                 placeholder="e.g., 750,000"
+                value={numberInputs.price_aed}
+                onChange={(e) => updateNumberInput('price_aed', e.target.value)}
                 onBlur={applyNumberInputs}
               />
             </div>
@@ -546,14 +536,18 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 Budget Range (AED)
               </Label>
               <div className="grid grid-cols-2 gap-2 mb-2">
-                <NumberInput
-                  ref={budgetMinRef}
+                <Input
+                  type="text"
                   placeholder="Min (e.g., 100,000)"
+                  value={numberInputs.budget_min}
+                  onChange={(e) => updateNumberInput('budget_min', e.target.value)}
                   onBlur={applyNumberInputs}
                 />
-                <NumberInput
-                  ref={budgetMaxRef}
+                <Input
+                  type="text"
                   placeholder="Max (e.g., 1,000,000)"
+                  value={numberInputs.budget_max}
+                  onChange={(e) => updateNumberInput('budget_max', e.target.value)}
                   onBlur={applyNumberInputs}
                 />
               </div>
