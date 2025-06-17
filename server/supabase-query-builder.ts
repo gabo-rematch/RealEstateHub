@@ -136,7 +136,7 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
     const validTypes = filters.property_type.filter(t => t && t !== 'null');
     if (validTypes.length > 0) {
       // Create conditions for both scalar and array property types
-      const typeConditions = [];
+      const typeConditions: string[] = [];
       
       validTypes.forEach(type => {
         // For scalar property_type field - need quotes for string values
@@ -145,7 +145,6 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
         typeConditions.push(`data->property_type.cs.${JSON.stringify([type])}`);
       });
       
-      console.log('Property type filter conditions:', typeConditions.join(','));
       query = query.or(typeConditions.join(','));
     }
   }
