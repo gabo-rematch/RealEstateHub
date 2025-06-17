@@ -653,6 +653,7 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 </Button>
                 <Button 
                   onClick={() => {
+                    applyNumberInputs();
                     onSearch();
                     setIsDrawerOpen(false);
                   }}
