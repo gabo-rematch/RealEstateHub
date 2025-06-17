@@ -6,6 +6,12 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) ? 
   createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
+// Helper function to escape PostgREST string values
+function escapePostgRESTString(value: string): string {
+  // Escape quotes and backslashes for PostgREST
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
 interface FilterParams {
   unit_kind?: string;
   transaction_type?: string;
@@ -108,47 +114,18 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
     }
   }
 
-  // Handle communities filter using separate filter calls to avoid PostgREST syntax issues
+  // Handle communities filter using native Supabase client methods to avoid PostgREST syntax issues
   if (filters.communities && filters.communities.length > 0) {
     const validCommunities = filters.communities.filter(c => c && c !== 'null');
     
     if (validCommunities.length > 0) {
-      // Use individual filter calls for better PostgREST compatibility
-      let communityQuery = null;
-      
-      for (let i = 0; i < validCommunities.length; i++) {
-        const community = validCommunities[i];
-        
-        // Create base query for this community
-        const baseQuery = supabase
-          .from('inventory_unit_preference')
-          .select('pk,id,data,updated_at,inventory_unit:inventory_unit_pk(agent_details)')
-          .not('data->>kind', 'is', null)
-          .not('data->>transaction_type', 'is', null);
-        
-        // Apply existing filters to this base query
-        let currentQuery = baseQuery;
-        if (filters.unit_kind) {
-          currentQuery = currentQuery.eq('data->>kind', filters.unit_kind);
-        }
-        if (filters.transaction_type) {
-          currentQuery = currentQuery.eq('data->>transaction_type', filters.transaction_type);
-        }
-        
-        // Apply community filter using proper native methods
-        currentQuery = currentQuery.or(`data->>community.eq."${community}",data->communities.cs.["${community}"]`);
-        
-        if (i === 0) {
-          communityQuery = currentQuery;
-        }
-      }
-      
-      // For now, use simple approach with just the first community to avoid complex merging
+      // Use native .in() method for scalar community field which handles escaping properly
       if (validCommunities.length === 1) {
         const community = validCommunities[0];
-        query = query.or(`data->>community.eq."${community}",data->communities.cs.["${community}"]`);
+        // Use separate eq() calls instead of complex OR syntax
+        query = query.eq('data->>community', community);
       } else {
-        // For multiple communities, use the .in() operator for scalar field only
+        // For multiple communities, use .in() method
         query = query.in('data->>community', validCommunities);
       }
     }
