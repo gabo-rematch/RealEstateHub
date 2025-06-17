@@ -99,17 +99,18 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
   // E) Communities multiselect - handle both communities and community fields
   if (filters.communities && filters.communities.length > 0) {
     console.log('🏘️ Applying communities filter:', filters.communities);
-    // Single community
+    // Start with array-based communities field which is more common
     if (filters.communities.length === 1) {
       const community = filters.communities[0];
-      query = query.or(`data->communities.cs.${JSON.stringify([community])},data->>community.eq.${community}`);
+      // Use filter method instead of OR to avoid PostgREST syntax issues
+      query = query.filter('data->communities', 'cs', JSON.stringify([community]));
     } else {
-      // Multiple communities
-      const communityConditions = filters.communities.flatMap(community => [
-        `data->communities.cs.${JSON.stringify([community])}`,
-        `data->>community.eq.${community}`
-      ]);
-      query = query.or(communityConditions.join(','));
+      // For multiple communities, apply each filter separately and combine with OR
+      // Build individual contains conditions
+      const orConditions = filters.communities.map(community => 
+        `data->communities.cs.${JSON.stringify([community])}`
+      ).join(',');
+      query = query.or(orConditions);
     }
   }
 
