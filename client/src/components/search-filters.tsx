@@ -275,22 +275,24 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
     price_aed: filters.price_aed?.toString() || "",
   });
 
-  // Track which fields are currently being edited to prevent focus loss
-  const [activelyEditingFields, setActivelyEditingFields] = useState<Set<string>>(new Set());
-
   // No automatic debounced updates - only update on blur or apply button
   // This prevents queries from running while typing
 
-  // Update local state when filters change externally, but only if not actively editing
+  // Only sync local inputs when filters change from external sources (not from typing)
+  const lastAppliedFiltersRef = useRef(filters);
   useEffect(() => {
-    setLocalNumberInputs(prev => ({
-      area_sqft_min: activelyEditingFields.has('area_sqft_min') ? prev.area_sqft_min : (filters.area_sqft_min?.toString() || ""),
-      area_sqft_max: activelyEditingFields.has('area_sqft_max') ? prev.area_sqft_max : (filters.area_sqft_max?.toString() || ""),
-      budget_min: activelyEditingFields.has('budget_min') ? prev.budget_min : (filters.budget_min?.toString() || ""),
-      budget_max: activelyEditingFields.has('budget_max') ? prev.budget_max : (filters.budget_max?.toString() || ""),
-      price_aed: activelyEditingFields.has('price_aed') ? prev.price_aed : (filters.price_aed?.toString() || ""),
-    }));
-  }, [filters.area_sqft_min, filters.area_sqft_max, filters.budget_min, filters.budget_max, filters.price_aed, activelyEditingFields]);
+    // Only update if filters changed externally (not from our own applyNumberInputs)
+    if (lastAppliedFiltersRef.current !== filters) {
+      setLocalNumberInputs({
+        area_sqft_min: filters.area_sqft_min?.toString() || "",
+        area_sqft_max: filters.area_sqft_max?.toString() || "",
+        budget_min: filters.budget_min?.toString() || "",
+        budget_max: filters.budget_max?.toString() || "",
+        price_aed: filters.price_aed?.toString() || "",
+      });
+      lastAppliedFiltersRef.current = filters;
+    }
+  }, [filters]);
 
   // Fetch dynamic filter options from the database
   const { data: filterOptions = {} } = useQuery({
@@ -318,21 +320,41 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
     const updates: Partial<SearchFilters> = {};
     
     if (localNumberInputs.area_sqft_min) {
-      updates.area_sqft_min = parseInt(localNumberInputs.area_sqft_min.replace(/,/g, ''));
+      const parsed = parseInt(localNumberInputs.area_sqft_min.replace(/,/g, ''));
+      if (!isNaN(parsed)) updates.area_sqft_min = parsed;
+    } else {
+      updates.area_sqft_min = undefined;
     }
+    
     if (localNumberInputs.area_sqft_max) {
-      updates.area_sqft_max = parseInt(localNumberInputs.area_sqft_max.replace(/,/g, ''));
+      const parsed = parseInt(localNumberInputs.area_sqft_max.replace(/,/g, ''));
+      if (!isNaN(parsed)) updates.area_sqft_max = parsed;
+    } else {
+      updates.area_sqft_max = undefined;
     }
+    
     if (localNumberInputs.budget_min) {
-      updates.budget_min = parseInt(localNumberInputs.budget_min.replace(/,/g, ''));
+      const parsed = parseInt(localNumberInputs.budget_min.replace(/,/g, ''));
+      if (!isNaN(parsed)) updates.budget_min = parsed;
+    } else {
+      updates.budget_min = undefined;
     }
+    
     if (localNumberInputs.budget_max) {
-      updates.budget_max = parseInt(localNumberInputs.budget_max.replace(/,/g, ''));
+      const parsed = parseInt(localNumberInputs.budget_max.replace(/,/g, ''));
+      if (!isNaN(parsed)) updates.budget_max = parsed;
+    } else {
+      updates.budget_max = undefined;
     }
+    
     if (localNumberInputs.price_aed) {
-      updates.price_aed = parseInt(localNumberInputs.price_aed.replace(/,/g, ''));
+      const parsed = parseInt(localNumberInputs.price_aed.replace(/,/g, ''));
+      if (!isNaN(parsed)) updates.price_aed = parsed;
+    } else {
+      updates.price_aed = undefined;
     }
 
+    lastAppliedFiltersRef.current = { ...filters, ...updates };
     onFiltersChange({ ...filters, ...updates });
   }, [localNumberInputs, filters, onFiltersChange]);
 
@@ -464,30 +486,14 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 placeholder="Min (e.g., 1,000)"
                 value={localNumberInputs.area_sqft_min}
                 onChange={(e) => updateLocalNumberInput('area_sqft_min', e.target.value)}
-                onFocus={() => setActivelyEditingFields(prev => new Set(prev).add('area_sqft_min'))}
-                onBlur={() => {
-                  setActivelyEditingFields(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete('area_sqft_min');
-                    return newSet;
-                  });
-                  applyNumberInputs();
-                }}
+                onBlur={applyNumberInputs}
               />
               <Input
                 type="text"
                 placeholder="Max (e.g., 5,000)"
                 value={localNumberInputs.area_sqft_max}
                 onChange={(e) => updateLocalNumberInput('area_sqft_max', e.target.value)}
-                onFocus={() => setActivelyEditingFields(prev => new Set(prev).add('area_sqft_max'))}
-                onBlur={() => {
-                  setActivelyEditingFields(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete('area_sqft_max');
-                    return newSet;
-                  });
-                  applyNumberInputs();
-                }}
+                onBlur={applyNumberInputs}
               />
             </div>
           </div>
@@ -517,15 +523,7 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 placeholder="e.g., 750,000"
                 value={localNumberInputs.price_aed}
                 onChange={(e) => updateLocalNumberInput('price_aed', e.target.value)}
-                onFocus={() => setActivelyEditingFields(prev => new Set(prev).add('price_aed'))}
-                onBlur={() => {
-                  setActivelyEditingFields(prev => {
-                    const newSet = new Set(prev);
-                    newSet.delete('price_aed');
-                    return newSet;
-                  });
-                  applyNumberInputs();
-                }}
+                onBlur={applyNumberInputs}
               />
             </div>
           ) : (
@@ -539,30 +537,14 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                   placeholder="Min (e.g., 100,000)"
                   value={localNumberInputs.budget_min}
                   onChange={(e) => updateLocalNumberInput('budget_min', e.target.value)}
-                  onFocus={() => setActivelyEditingFields(prev => new Set(prev).add('budget_min'))}
-                  onBlur={() => {
-                    setActivelyEditingFields(prev => {
-                      const newSet = new Set(prev);
-                      newSet.delete('budget_min');
-                      return newSet;
-                    });
-                    applyNumberInputs();
-                  }}
+                  onBlur={applyNumberInputs}
                 />
                 <Input
                   type="text"
                   placeholder="Max (e.g., 1,000,000)"
                   value={localNumberInputs.budget_max}
                   onChange={(e) => updateLocalNumberInput('budget_max', e.target.value)}
-                  onFocus={() => setActivelyEditingFields(prev => new Set(prev).add('budget_max'))}
-                  onBlur={() => {
-                    setActivelyEditingFields(prev => {
-                      const newSet = new Set(prev);
-                      newSet.delete('budget_max');
-                      return newSet;
-                    });
-                    applyNumberInputs();
-                  }}
+                  onBlur={applyNumberInputs}
                 />
               </div>
             </div>
