@@ -276,20 +276,21 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
 
   // Initialize input values on mount and when filters are applied
   useEffect(() => {
-    if (areaMinRef.current && filters.area_sqft_min && areaMinRef.current.value !== filters.area_sqft_min.toString()) {
-      areaMinRef.current.value = filters.area_sqft_min.toString();
+    // Always sync input values with filter state
+    if (areaMinRef.current) {
+      areaMinRef.current.value = filters.area_sqft_min?.toString() || "";
     }
-    if (areaMaxRef.current && filters.area_sqft_max && areaMaxRef.current.value !== filters.area_sqft_max.toString()) {
-      areaMaxRef.current.value = filters.area_sqft_max.toString();
+    if (areaMaxRef.current) {
+      areaMaxRef.current.value = filters.area_sqft_max?.toString() || "";
     }
-    if (budgetMinRef.current && filters.budget_min && budgetMinRef.current.value !== filters.budget_min.toString()) {
-      budgetMinRef.current.value = filters.budget_min.toString();
+    if (budgetMinRef.current) {
+      budgetMinRef.current.value = filters.budget_min?.toString() || "";
     }
-    if (budgetMaxRef.current && filters.budget_max && budgetMaxRef.current.value !== filters.budget_max.toString()) {
-      budgetMaxRef.current.value = filters.budget_max.toString();
+    if (budgetMaxRef.current) {
+      budgetMaxRef.current.value = filters.budget_max?.toString() || "";
     }
-    if (priceRef.current && filters.price_aed && priceRef.current.value !== filters.price_aed.toString()) {
-      priceRef.current.value = filters.price_aed.toString();
+    if (priceRef.current) {
+      priceRef.current.value = filters.price_aed?.toString() || "";
     }
   }, [filters.area_sqft_min, filters.area_sqft_max, filters.budget_min, filters.budget_max, filters.price_aed]);
 
