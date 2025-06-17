@@ -274,24 +274,58 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
   const budgetMaxRef = useRef<HTMLInputElement>(null);
   const priceRef = useRef<HTMLInputElement>(null);
 
-  // Initialize and sync input values with filter state without disrupting typing
+  // Track the previous filter values to detect external changes vs internal updates
+  const prevFilters = useRef({
+    area_sqft_min: filters.area_sqft_min,
+    area_sqft_max: filters.area_sqft_max,
+    budget_min: filters.budget_min,
+    budget_max: filters.budget_max,
+    price_aed: filters.price_aed,
+  });
+
+  // Initialize input values on mount
   useEffect(() => {
-    // Only update inputs when they don't have focus (not actively being typed in)
-    if (areaMinRef.current && document.activeElement !== areaMinRef.current) {
+    if (areaMinRef.current && !areaMinRef.current.value) {
       areaMinRef.current.value = filters.area_sqft_min?.toString() || "";
     }
-    if (areaMaxRef.current && document.activeElement !== areaMaxRef.current) {
+    if (areaMaxRef.current && !areaMaxRef.current.value) {
       areaMaxRef.current.value = filters.area_sqft_max?.toString() || "";
     }
-    if (budgetMinRef.current && document.activeElement !== budgetMinRef.current) {
+    if (budgetMinRef.current && !budgetMinRef.current.value) {
       budgetMinRef.current.value = filters.budget_min?.toString() || "";
     }
-    if (budgetMaxRef.current && document.activeElement !== budgetMaxRef.current) {
+    if (budgetMaxRef.current && !budgetMaxRef.current.value) {
       budgetMaxRef.current.value = filters.budget_max?.toString() || "";
     }
-    if (priceRef.current && document.activeElement !== priceRef.current) {
+    if (priceRef.current && !priceRef.current.value) {
       priceRef.current.value = filters.price_aed?.toString() || "";
     }
+  }, []); // Only run on mount
+
+  // Update inputs only when filters are externally cleared (not from our applyNumberInputs)
+  useEffect(() => {
+    const allFiltersCleared = !filters.area_sqft_min && !filters.area_sqft_max && 
+                             !filters.budget_min && !filters.budget_max && !filters.price_aed;
+    
+    // Only clear inputs if ALL filters were cleared (like clear all action)
+    if (allFiltersCleared && (prevFilters.current.area_sqft_min || prevFilters.current.area_sqft_max || 
+                             prevFilters.current.budget_min || prevFilters.current.budget_max || 
+                             prevFilters.current.price_aed)) {
+      if (areaMinRef.current) areaMinRef.current.value = "";
+      if (areaMaxRef.current) areaMaxRef.current.value = "";
+      if (budgetMinRef.current) budgetMinRef.current.value = "";
+      if (budgetMaxRef.current) budgetMaxRef.current.value = "";
+      if (priceRef.current) priceRef.current.value = "";
+    }
+
+    // Update the previous filters reference
+    prevFilters.current = {
+      area_sqft_min: filters.area_sqft_min,
+      area_sqft_max: filters.area_sqft_max,
+      budget_min: filters.budget_min,
+      budget_max: filters.budget_max,
+      price_aed: filters.price_aed,
+    };
   }, [filters.area_sqft_min, filters.area_sqft_max, filters.budget_min, filters.budget_max, filters.price_aed]);
 
   // Fetch dynamic filter options from the database
