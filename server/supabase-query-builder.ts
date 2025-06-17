@@ -72,7 +72,7 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     if (validTypes.length > 0 && validTypes.length === 1) {
       const propertyType = validTypes[0];
       console.log('🔍 Applying contains filter for property_type:', propertyType);
-      query = query.filter('data->property_type', 'cs', `["${propertyType}"]`);
+      query = query.filter('data->property_type', 'cs', JSON.stringify([propertyType]));
     }
   }
 
@@ -145,6 +145,18 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     throw new Error(`Supabase query error: ${error.message}`);
   }
 
+  // Debug: Log a sample of the returned data to understand structure
+  if (data && data.length > 0 && filters.unit_kind === 'client_request' && filters.bedrooms?.includes('1')) {
+    console.log('🔍 Sample returned data structure:', data.slice(0, 2).map(item => ({
+      pk: item.pk,
+      bedrooms: item.data?.bedrooms,
+      property_type: item.data?.property_type,
+      kind: item.data?.kind,
+      transaction_type: item.data?.transaction_type
+    })));
+  }
+
+  console.log(`Query returned ${data?.length || 0} properties`);
   return data || [];
 }
 
