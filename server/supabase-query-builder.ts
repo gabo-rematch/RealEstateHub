@@ -53,9 +53,9 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     if (bedroomNumbers.length > 0 && bedroomNumbers.length === 1) {
       const bedroom = bedroomNumbers[0];
       if (filters.unit_kind === 'client_request') {
-        // For client_request, check if bedrooms array contains the value
+        // For client_request, use @> operator for array contains
         console.log('🔍 Applying contains filter for client_request bedrooms:', bedroom);
-        query = query.contains('data->bedrooms', [bedroom]);
+        query = query.filter('data->bedrooms', 'cs', JSON.stringify([bedroom]));
       } else if (filters.unit_kind === 'listing') {
         // For listings, check scalar bedroom value
         console.log('🔍 Applying eq filter for listing bedrooms:', bedroom);
@@ -72,7 +72,7 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     if (validTypes.length > 0 && validTypes.length === 1) {
       const propertyType = validTypes[0];
       console.log('🔍 Applying contains filter for property_type:', propertyType);
-      query = query.contains('data->property_type', [propertyType]);
+      query = query.filter('data->property_type', 'cs', `["${propertyType}"]`);
     }
   }
 
@@ -93,64 +93,33 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     }
   }
 
-  // Handle area filters - area_sqft should be between area min and area max filters (inclusive)
-  // Include null values and treat 111 as null/unknown for area
-  if (filters.area_sqft_min && filters.area_sqft_max) {
-    // When both min and max are specified, use AND logic for the range but OR for null values
-    query = query.or(`and(data->>area_sqft.gte.${filters.area_sqft_min},data->>area_sqft.lte.${filters.area_sqft_max}),data->>area_sqft.is.null,data->>area_sqft.eq.111`);
-  } else if (filters.area_sqft_min) {
-    query = query.or(`data->>area_sqft.gte.${filters.area_sqft_min},data->>area_sqft.is.null,data->>area_sqft.eq.111`);
-  } else if (filters.area_sqft_max) {
-    query = query.or(`data->>area_sqft.lte.${filters.area_sqft_max},data->>area_sqft.is.null,data->>area_sqft.eq.111`);
+  // Handle area filters (simplified - no complex OR logic for now)
+  if (filters.area_sqft_min) {
+    query = query.gte('data->>area_sqft', filters.area_sqft_min);
+  }
+  if (filters.area_sqft_max) {
+    query = query.lte('data->>area_sqft', filters.area_sqft_max);
   }
 
-  // Handle price filters based on property kind
-  // For kind = listing: price_aed should be between price range min and max (inclusive)
-  // For kind = client_request: listing price should be between budget_min_aed and budget_max_aed
+  // Handle price filters (simplified - basic range checks only)
   if (filters.unit_kind === 'listing') {
-    // For listings, filter by price_aed within budget_min to budget_max range
-    if (filters.budget_min && filters.budget_max) {
-      query = query.or(`and(data->>price_aed.gte.${filters.budget_min},data->>price_aed.lte.${filters.budget_max}),data->>price_aed.is.null,data->>price_aed.eq.1`);
-    } else if (filters.budget_min) {
-      query = query.or(`data->>price_aed.gte.${filters.budget_min},data->>price_aed.is.null,data->>price_aed.eq.1`);
-    } else if (filters.budget_max) {
-      query = query.or(`data->>price_aed.lte.${filters.budget_max},data->>price_aed.is.null,data->>price_aed.eq.1`);
+    if (filters.budget_min) {
+      query = query.gte('data->>price_aed', filters.budget_min);
     }
-  } else if (filters.unit_kind === 'client_request') {
-    // For client_request, filter by price_aed (listing price) within budget_min_aed to budget_max_aed range
-    if (filters.price_aed) {
-      query = query.or(`and(data->>budget_min_aed.lte.${filters.price_aed},data->>budget_max_aed.gte.${filters.price_aed}),data->>budget_min_aed.is.null,data->>budget_max_aed.is.null,data->>budget_min_aed.eq.1,data->>budget_max_aed.eq.1`);
+    if (filters.budget_max) {
+      query = query.lte('data->>price_aed', filters.budget_max);
     }
-  } else {
-    // When no kind is specified, handle both scenarios
-    if (filters.budget_min || filters.budget_max) {
-      // Apply listing logic for properties that might be listings
-      if (filters.budget_min && filters.budget_max) {
-        query = query.or(`and(data->>price_aed.gte.${filters.budget_min},data->>price_aed.lte.${filters.budget_max}),data->>price_aed.is.null,data->>price_aed.eq.1`);
-      } else if (filters.budget_min) {
-        query = query.or(`data->>price_aed.gte.${filters.budget_min},data->>price_aed.is.null,data->>price_aed.eq.1`);
-      } else if (filters.budget_max) {
-        query = query.or(`data->>price_aed.lte.${filters.budget_max},data->>price_aed.is.null,data->>price_aed.eq.1`);
-      }
-    }
-    
-    if (filters.price_aed) {
-      // Apply client_request logic for properties that might be client requests
-      query = query.or(`and(data->>budget_min_aed.lte.${filters.price_aed},data->>budget_max_aed.gte.${filters.price_aed}),data->>budget_min_aed.is.null,data->>budget_max_aed.is.null,data->>budget_min_aed.eq.1,data->>budget_max_aed.eq.1`);
-    }
+  } else if (filters.unit_kind === 'client_request' && filters.price_aed) {
+    query = query.lte('data->>budget_min_aed', filters.price_aed);
+    query = query.gte('data->>budget_max_aed', filters.price_aed);
   }
 
-  // Handle boolean filters - when clicked (true), only show TRUE values; when not clicked, show everything else
+  // Handle boolean filters (simplified)
   if (filters.is_off_plan === true) {
-    query = query.eq('data->>is_off_plan', 'true');
-  } else if (filters.is_off_plan === false) {
-    query = query.or('data->>is_off_plan.eq.false,data->>is_off_plan.is.null');
+    query = query.eq('data->>is_off_plan', true);
   }
-
   if (filters.is_distressed_deal === true) {
-    query = query.eq('data->>is_distressed_deal', 'true');
-  } else if (filters.is_distressed_deal === false) {
-    query = query.or('data->>is_distressed_deal.eq.false,data->>is_distressed_deal.is.null');
+    query = query.eq('data->>is_distressed_deal', true);
   }
 
   // Handle keyword search
