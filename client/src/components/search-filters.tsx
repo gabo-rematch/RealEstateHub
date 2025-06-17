@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -267,32 +267,30 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const isMobile = useIsMobile();
 
-  // Use refs for uncontrolled inputs that maintain focus during typing
-  const areaMinRef = useRef<HTMLInputElement>(null);
-  const areaMaxRef = useRef<HTMLInputElement>(null);
-  const budgetMinRef = useRef<HTMLInputElement>(null);
-  const budgetMaxRef = useRef<HTMLInputElement>(null);
-  const priceRef = useRef<HTMLInputElement>(null);
+  // State to track displayed values in inputs (separate from filter state for smooth typing)
+  const [inputValues, setInputValues] = useState({
+    area_sqft_min: filters.area_sqft_min?.toString() || "",
+    area_sqft_max: filters.area_sqft_max?.toString() || "",
+    budget_min: filters.budget_min?.toString() || "",
+    budget_max: filters.budget_max?.toString() || "",
+    price_aed: filters.price_aed?.toString() || "",
+  });
 
-  // Track if we're programmatically updating from filter state to avoid overriding user input
-  const isUpdatingFromFilters = useRef(false);
-
-  // Initialize input values on mount and when filters are cleared (not when applied)
+  // Initialize input values from filters on mount or when filters are externally changed
   useEffect(() => {
-    // Only update inputs when all number filters are cleared (reset scenario)
-    const allNumberFiltersEmpty = !filters.area_sqft_min && !filters.area_sqft_max && 
-                                 !filters.budget_min && !filters.budget_max && !filters.price_aed;
-    
-    if (allNumberFiltersEmpty) {
-      isUpdatingFromFilters.current = true;
-      if (areaMinRef.current) areaMinRef.current.value = "";
-      if (areaMaxRef.current) areaMaxRef.current.value = "";
-      if (budgetMinRef.current) budgetMinRef.current.value = "";
-      if (budgetMaxRef.current) budgetMaxRef.current.value = "";
-      if (priceRef.current) priceRef.current.value = "";
-      isUpdatingFromFilters.current = false;
-    }
+    setInputValues({
+      area_sqft_min: filters.area_sqft_min?.toString() || "",
+      area_sqft_max: filters.area_sqft_max?.toString() || "",
+      budget_min: filters.budget_min?.toString() || "",
+      budget_max: filters.budget_max?.toString() || "",
+      price_aed: filters.price_aed?.toString() || "",
+    });
   }, [filters.area_sqft_min, filters.area_sqft_max, filters.budget_min, filters.budget_max, filters.price_aed]);
+
+  // Update individual input values without triggering filter updates
+  const updateInputValue = (key: keyof typeof inputValues, value: string) => {
+    setInputValues(prev => ({ ...prev, [key]: value }));
+  };
 
   // Fetch dynamic filter options from the database
   const { data: filterOptions = {} } = useQuery({
@@ -314,43 +312,43 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
   const applyNumberInputs = useCallback(() => {
     const updates: Partial<SearchFilters> = {};
     
-    if (areaMinRef.current?.value) {
-      const parsed = parseInt(areaMinRef.current.value.replace(/,/g, ''));
+    if (inputValues.area_sqft_min) {
+      const parsed = parseInt(inputValues.area_sqft_min.replace(/,/g, ''));
       if (!isNaN(parsed)) updates.area_sqft_min = parsed;
     } else {
       updates.area_sqft_min = undefined;
     }
     
-    if (areaMaxRef.current?.value) {
-      const parsed = parseInt(areaMaxRef.current.value.replace(/,/g, ''));
+    if (inputValues.area_sqft_max) {
+      const parsed = parseInt(inputValues.area_sqft_max.replace(/,/g, ''));
       if (!isNaN(parsed)) updates.area_sqft_max = parsed;
     } else {
       updates.area_sqft_max = undefined;
     }
     
-    if (budgetMinRef.current?.value) {
-      const parsed = parseInt(budgetMinRef.current.value.replace(/,/g, ''));
+    if (inputValues.budget_min) {
+      const parsed = parseInt(inputValues.budget_min.replace(/,/g, ''));
       if (!isNaN(parsed)) updates.budget_min = parsed;
     } else {
       updates.budget_min = undefined;
     }
     
-    if (budgetMaxRef.current?.value) {
-      const parsed = parseInt(budgetMaxRef.current.value.replace(/,/g, ''));
+    if (inputValues.budget_max) {
+      const parsed = parseInt(inputValues.budget_max.replace(/,/g, ''));
       if (!isNaN(parsed)) updates.budget_max = parsed;
     } else {
       updates.budget_max = undefined;
     }
     
-    if (priceRef.current?.value) {
-      const parsed = parseInt(priceRef.current.value.replace(/,/g, ''));
+    if (inputValues.price_aed) {
+      const parsed = parseInt(inputValues.price_aed.replace(/,/g, ''));
       if (!isNaN(parsed)) updates.price_aed = parsed;
     } else {
       updates.price_aed = undefined;
     }
 
     onFiltersChange({ ...filters, ...updates });
-  }, [filters, onFiltersChange]);
+  }, [inputValues, filters, onFiltersChange]);
 
   const removeFilter = (key: keyof SearchFilters, value?: string) => {
     if (key === 'bedrooms' && value) {
@@ -369,11 +367,13 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
 
   const clearAllFilters = () => {
     // Clear all input field values
-    if (areaMinRef.current) areaMinRef.current.value = "";
-    if (areaMaxRef.current) areaMaxRef.current.value = "";
-    if (budgetMinRef.current) budgetMinRef.current.value = "";
-    if (budgetMaxRef.current) budgetMaxRef.current.value = "";
-    if (priceRef.current) priceRef.current.value = "";
+    setInputValues({
+      area_sqft_min: "",
+      area_sqft_max: "",
+      budget_min: "",
+      budget_max: "",
+      price_aed: "",
+    });
     
     onFiltersChange({
       unit_kind: '',
@@ -483,15 +483,17 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
             </Label>
             <div className="grid grid-cols-2 gap-2">
               <Input
-                ref={areaMinRef}
                 type="text"
                 placeholder="Min (e.g., 1,000)"
+                value={inputValues.area_sqft_min}
+                onChange={(e) => updateInputValue('area_sqft_min', e.target.value)}
                 onBlur={applyNumberInputs}
               />
               <Input
-                ref={areaMaxRef}
                 type="text"
                 placeholder="Max (e.g., 5,000)"
+                value={inputValues.area_sqft_max}
+                onChange={(e) => updateInputValue('area_sqft_max', e.target.value)}
                 onBlur={applyNumberInputs}
               />
             </div>
@@ -518,9 +520,10 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 Listing Price (AED)
               </Label>
               <Input
-                ref={priceRef}
                 type="text"
                 placeholder="e.g., 750,000"
+                value={inputValues.price_aed}
+                onChange={(e) => updateInputValue('price_aed', e.target.value)}
                 onBlur={applyNumberInputs}
               />
             </div>
@@ -531,15 +534,17 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
               </Label>
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <Input
-                  ref={budgetMinRef}
                   type="text"
                   placeholder="Min (e.g., 100,000)"
+                  value={inputValues.budget_min}
+                  onChange={(e) => updateInputValue('budget_min', e.target.value)}
                   onBlur={applyNumberInputs}
                 />
                 <Input
-                  ref={budgetMaxRef}
                   type="text"
                   placeholder="Max (e.g., 1,000,000)"
+                  value={inputValues.budget_max}
+                  onChange={(e) => updateInputValue('budget_max', e.target.value)}
                   onBlur={applyNumberInputs}
                 />
               </div>
