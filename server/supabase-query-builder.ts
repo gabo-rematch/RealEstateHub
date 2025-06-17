@@ -131,14 +131,21 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
     }
   }
 
-  // Handle property types using array overlap filtering
+  // Handle property types using both scalar and array formats
   if (filters.property_type && filters.property_type.length > 0) {
     const validTypes = filters.property_type.filter(t => t && t !== 'null');
     if (validTypes.length > 0) {
-      // Create separate conditions for each property type
-      const typeConditions = validTypes.map(type => 
-        `data->property_type.cs.${JSON.stringify([type])}`
-      );
+      // Create conditions for both scalar and array property types
+      const typeConditions = [];
+      
+      validTypes.forEach(type => {
+        // For scalar property_type field - need quotes for string values
+        typeConditions.push(`data->>property_type.eq."${type}"`);
+        // For array property_type field
+        typeConditions.push(`data->property_type.cs.${JSON.stringify([type])}`);
+      });
+      
+      console.log('Property type filter conditions:', typeConditions.join(','));
       query = query.or(typeConditions.join(','));
     }
   }
