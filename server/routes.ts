@@ -33,12 +33,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const property_type = req.query.property_type ? 
         (Array.isArray(req.query.property_type) ? req.query.property_type : [req.query.property_type]).flatMap(p => p.toString().split(',')) : [];
 
-      // Debug logging for filter parameters
-      console.log('API Request filters:', {
-        unit_kind, transaction_type, bedrooms, communities, property_type,
-        budget_min, budget_max, price_aed, area_sqft_min, area_sqft_max,
-        is_off_plan, is_distressed_deal, keyword_search, page, pageSize
-      });
+
 
       // Always use Supabase query builder when credentials are available
       const useSupabase = process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY;

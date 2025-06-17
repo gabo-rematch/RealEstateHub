@@ -275,19 +275,22 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
     price_aed: filters.price_aed?.toString() || "",
   });
 
+  // Track which fields are currently being edited to prevent focus loss
+  const [activelyEditingFields, setActivelyEditingFields] = useState<Set<string>>(new Set());
+
   // No automatic debounced updates - only update on blur or apply button
   // This prevents queries from running while typing
 
-  // Update local state when filters change externally
+  // Update local state when filters change externally, but only if not actively editing
   useEffect(() => {
-    setLocalNumberInputs({
-      area_sqft_min: filters.area_sqft_min?.toString() || "",
-      area_sqft_max: filters.area_sqft_max?.toString() || "",
-      budget_min: filters.budget_min?.toString() || "",
-      budget_max: filters.budget_max?.toString() || "",
-      price_aed: filters.price_aed?.toString() || "",
-    });
-  }, [filters.area_sqft_min, filters.area_sqft_max, filters.budget_min, filters.budget_max, filters.price_aed]);
+    setLocalNumberInputs(prev => ({
+      area_sqft_min: activelyEditingFields.has('area_sqft_min') ? prev.area_sqft_min : (filters.area_sqft_min?.toString() || ""),
+      area_sqft_max: activelyEditingFields.has('area_sqft_max') ? prev.area_sqft_max : (filters.area_sqft_max?.toString() || ""),
+      budget_min: activelyEditingFields.has('budget_min') ? prev.budget_min : (filters.budget_min?.toString() || ""),
+      budget_max: activelyEditingFields.has('budget_max') ? prev.budget_max : (filters.budget_max?.toString() || ""),
+      price_aed: activelyEditingFields.has('price_aed') ? prev.price_aed : (filters.price_aed?.toString() || ""),
+    }));
+  }, [filters.area_sqft_min, filters.area_sqft_max, filters.budget_min, filters.budget_max, filters.price_aed, activelyEditingFields]);
 
   // Fetch dynamic filter options from the database
   const { data: filterOptions = {} } = useQuery({
@@ -461,14 +464,30 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 placeholder="Min (e.g., 1,000)"
                 value={localNumberInputs.area_sqft_min}
                 onChange={(e) => updateLocalNumberInput('area_sqft_min', e.target.value)}
-                onBlur={applyNumberInputs}
+                onFocus={() => setActivelyEditingFields(prev => new Set(prev).add('area_sqft_min'))}
+                onBlur={() => {
+                  setActivelyEditingFields(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete('area_sqft_min');
+                    return newSet;
+                  });
+                  applyNumberInputs();
+                }}
               />
               <Input
                 type="text"
                 placeholder="Max (e.g., 5,000)"
                 value={localNumberInputs.area_sqft_max}
                 onChange={(e) => updateLocalNumberInput('area_sqft_max', e.target.value)}
-                onBlur={applyNumberInputs}
+                onFocus={() => setActivelyEditingFields(prev => new Set(prev).add('area_sqft_max'))}
+                onBlur={() => {
+                  setActivelyEditingFields(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete('area_sqft_max');
+                    return newSet;
+                  });
+                  applyNumberInputs();
+                }}
               />
             </div>
           </div>
