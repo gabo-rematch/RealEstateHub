@@ -52,15 +52,9 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     
     if (bedroomNumbers.length > 0 && bedroomNumbers.length === 1) {
       const bedroom = bedroomNumbers[0];
-      if (filters.unit_kind === 'client_request') {
-        // For client_request, use @> operator for array contains
-        console.log('🔍 Applying contains filter for client_request bedrooms:', bedroom);
-        query = query.filter('data->bedrooms', 'cs', JSON.stringify([bedroom]));
-      } else if (filters.unit_kind === 'listing') {
-        // For listings, check scalar bedroom value
-        console.log('🔍 Applying eq filter for listing bedrooms:', bedroom);
-        query = query.eq('data->>bedrooms', bedroom);
-      }
+      // Both listings and client_requests store bedrooms as arrays based on the data observed
+      console.log('🔍 Applying contains filter for bedrooms:', bedroom);
+      query = query.filter('data->bedrooms', 'cs', JSON.stringify([bedroom]));
     }
   }
 
