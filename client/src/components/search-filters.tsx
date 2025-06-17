@@ -276,11 +276,45 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
     price_aed: filters.price_aed?.toString() || "",
   });
 
-  // Debounced function to prevent rapid state updates during typing
-  const updateTimeout = useRef<NodeJS.Timeout>();
+  // Track which input is currently being typed in to prevent interference
+  const [activeInput, setActiveInput] = useState<string | null>(null);
+  const debounceTimeout = useRef<NodeJS.Timeout>();
   
   const updateLocalInput = (key: keyof typeof localInputs, value: string) => {
+    // Clear any existing timeout
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+    
+    // Set input as active to prevent external updates
+    setActiveInput(key);
+    
+    // Update immediately for smooth typing
     setLocalInputs(prev => ({ ...prev, [key]: value }));
+    
+    // Clear active state after typing stops
+    debounceTimeout.current = setTimeout(() => {
+      setActiveInput(null);
+    }, 500);
+  };
+
+  // Handle input focus to prevent external interference
+  const handleInputFocus = (key: keyof typeof localInputs) => {
+    setActiveInput(key);
+  };
+
+  // Handle input blur to allow external updates and apply changes
+  const handleInputBlur = (key: keyof typeof localInputs) => {
+    // Clear any pending timeout
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+    
+    // Clear active state immediately on blur
+    setActiveInput(null);
+    
+    // Apply the number inputs after a brief delay to ensure state is updated
+    setTimeout(applyNumberInputs, 50);
   };
 
   // Sync local inputs with filter state only when filters change externally (not from our updates)
@@ -293,14 +327,14 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
       price_aed: filters.price_aed?.toString() || "",
     };
 
-    // Only update local inputs if all filters are cleared (like clear all action)
+    // Only update local inputs if all filters are cleared (like clear all action) AND no input is actively being typed in
     const allFiltersCleared = !filters.area_sqft_min && !filters.area_sqft_max && 
                              !filters.budget_min && !filters.budget_max && !filters.price_aed;
     
-    if (allFiltersCleared) {
+    if (allFiltersCleared && !activeInput) {
       setLocalInputs(newInputs);
     }
-  }, [filters.area_sqft_min, filters.area_sqft_max, filters.budget_min, filters.budget_max, filters.price_aed]);
+  }, [filters.area_sqft_min, filters.area_sqft_max, filters.budget_min, filters.budget_max, filters.price_aed, activeInput]);
 
   // Fetch dynamic filter options from the database
   const { data: filterOptions = {} } = useQuery({
@@ -497,14 +531,16 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 placeholder="Min (e.g., 1,000)"
                 value={localInputs.area_sqft_min}
                 onChange={(e) => updateLocalInput('area_sqft_min', e.target.value)}
-                onBlur={applyNumberInputs}
+                onFocus={() => handleInputFocus('area_sqft_min')}
+                onBlur={() => handleInputBlur('area_sqft_min')}
               />
               <Input
                 type="text"
                 placeholder="Max (e.g., 5,000)"
                 value={localInputs.area_sqft_max}
                 onChange={(e) => updateLocalInput('area_sqft_max', e.target.value)}
-                onBlur={applyNumberInputs}
+                onFocus={() => handleInputFocus('area_sqft_max')}
+                onBlur={() => handleInputBlur('area_sqft_max')}
               />
             </div>
           </div>
@@ -534,7 +570,8 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 placeholder="e.g., 750,000"
                 value={localInputs.price_aed}
                 onChange={(e) => updateLocalInput('price_aed', e.target.value)}
-                onBlur={applyNumberInputs}
+                onFocus={() => handleInputFocus('price_aed')}
+                onBlur={() => handleInputBlur('price_aed')}
               />
             </div>
           ) : (
@@ -548,14 +585,16 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                   placeholder="Min (e.g., 100,000)"
                   value={localInputs.budget_min}
                   onChange={(e) => updateLocalInput('budget_min', e.target.value)}
-                  onBlur={applyNumberInputs}
+                  onFocus={() => handleInputFocus('budget_min')}
+                  onBlur={() => handleInputBlur('budget_min')}
                 />
                 <Input
                   type="text"
                   placeholder="Max (e.g., 1,000,000)"
                   value={localInputs.budget_max}
                   onChange={(e) => updateLocalInput('budget_max', e.target.value)}
-                  onBlur={applyNumberInputs}
+                  onFocus={() => handleInputFocus('budget_max')}
+                  onBlur={() => handleInputBlur('budget_max')}
                 />
               </div>
             </div>
