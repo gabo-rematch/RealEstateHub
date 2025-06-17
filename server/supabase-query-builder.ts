@@ -100,17 +100,28 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
   if (filters.communities && filters.communities.length > 0) {
     console.log('🏘️ Applying communities filter:', filters.communities);
     
-    // Use ilike on the raw JSONB data to match community names without JSON parsing
-    if (filters.communities.length === 1) {
-      const community = filters.communities[0];
-      // Search for the community name anywhere in the JSONB data
-      query = query.ilike('data', `%${community}%`);
-    } else {
-      // For multiple communities, use OR with ilike patterns
-      const orConditions = filters.communities.map(community => 
-        `data.ilike.%${encodeURIComponent(community)}%`
-      ).join(',');
-      query = query.or(orConditions);
+    // Filter out communities with special characters that break JSON parsing
+    const safeCommunitiesFilters = filters.communities.filter(community => !community.includes('(') && !community.includes(')'));
+    const unsafeCommunitiesFilters = filters.communities.filter(community => community.includes('(') || community.includes(')'));
+    
+    if (unsafeCommunitiesFilters.length > 0) {
+      console.log('⚠️ Skipping communities with special characters:', unsafeCommunitiesFilters);
+    }
+    
+    if (safeCommunitiesFilters.length > 0) {
+      if (safeCommunitiesFilters.length === 1) {
+        const community = safeCommunitiesFilters[0];
+        // Use OR condition for both array and scalar community fields
+        query = query.or(`data->communities.cs.${JSON.stringify([community])},data->>community.eq.${community}`);
+      } else {
+        // For multiple safe communities, build OR conditions
+        const orConditions = [];
+        for (const community of safeCommunitiesFilters) {
+          orConditions.push(`data->communities.cs.${JSON.stringify([community])}`);
+          orConditions.push(`data->>community.eq.${community}`);
+        }
+        query = query.or(orConditions.join(','));
+      }
     }
   }
 
