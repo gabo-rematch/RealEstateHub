@@ -31,135 +31,141 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
 
   console.log('🔍 Query filters received:', JSON.stringify(filters, null, 2));
 
-  // Start with base query
+  // Start with base query including agent details join
   let query = supabase
     .from('inventory_unit_preference')
-    .select('pk, id, data, updated_at, inventory_unit_pk');
+    .select(`
+      pk,
+      id,
+      data,
+      updated_at,
+      inventory_unit!inner(
+        agent_details
+      )
+    `)
+    .order('updated_at', { ascending: false });
 
-  // Apply basic filters with AND logic
-  if (filters.unit_kind) {
-    query = query.eq('data->>kind', filters.unit_kind);
+  // A) Bedrooms multiselect - use array contains with OR logic
+  if (filters.bedrooms && filters.bedrooms.length > 0) {
+    const bedroomNumbers = filters.bedrooms.map(b => parseInt(b, 10)).filter(b => !isNaN(b));
+    if (bedroomNumbers.length > 0) {
+      console.log('🛏️ Applying bedrooms contains filter:', bedroomNumbers);
+      // Use contains for each bedroom value with OR logic
+      const bedroomConditions = bedroomNumbers.map(bedroom => 
+        `data->bedrooms.cs.[${bedroom}]`
+      );
+      query = query.or(bedroomConditions.join(','));
+    }
   }
 
+  // B) Communities multiselect - handle both 'communities' and 'community' fields with overlap
+  if (filters.communities && filters.communities.length > 0) {
+    console.log('🏘️ Applying communities overlap filter:', filters.communities);
+    // Use OR to check both communities (array) and community (could be array or scalar)
+    const communityOrConditions = filters.communities.map(community => 
+      `data->communities.ov.[${community}],data->community.ov.[${community}]`
+    );
+    query = query.or(communityOrConditions.join(','));
+  }
+
+  // C) Transaction type single select
   if (filters.transaction_type) {
+    console.log('💼 Applying transaction_type filter:', filters.transaction_type);
     query = query.eq('data->>transaction_type', filters.transaction_type);
   }
 
-  // Handle bedrooms filter - Apply as individual contains checks to avoid complex OR syntax
-  if (filters.bedrooms && filters.bedrooms.length > 0) {
-    const bedroomNumbers = filters.bedrooms.map(b => parseInt(b)).filter(n => !isNaN(n));
-    console.log('🛏️ Bedroom numbers to filter:', bedroomNumbers);
-    
-    if (bedroomNumbers.length > 0 && bedroomNumbers.length === 1) {
-      const bedroom = bedroomNumbers[0];
-      // Both listings and client_requests store bedrooms as arrays based on the data observed
-      console.log('🔍 Applying contains filter for bedrooms:', bedroom);
-      query = query.filter('data->bedrooms', 'cs', JSON.stringify([bedroom]));
-    }
+  // D) Kind (unit_kind) single select
+  if (filters.unit_kind) {
+    console.log('🏠 Applying unit_kind filter:', filters.unit_kind);
+    query = query.eq('data->>kind', filters.unit_kind);
   }
 
-  // Handle property types - Different logic for listings vs client_requests
+  // E) Property type multiselect - use array overlap with PostgREST syntax
   if (filters.property_type && filters.property_type.length > 0) {
-    const validTypes = filters.property_type.filter(t => t && t !== 'null');
-    console.log('🏠 Property types to filter:', validTypes);
-    
-    if (validTypes.length > 0 && validTypes.length === 1) {
-      const propertyType = validTypes[0];
-      
-      // For all property types, use array contains logic since property_type appears to be arrays
-      console.log('🔍 Applying property_type contains filter:', propertyType);
-      query = query.filter('data->property_type', 'cs', JSON.stringify([propertyType]));
+    console.log('🏢 Applying property_type overlap filter:', filters.property_type);
+    query = query.filter('data->property_type', 'ov', filters.property_type);
+  }
+
+  // F) Budget filters for listings only (treat 0 as no filter)
+  if (filters.budget_min && filters.budget_min > 0) {
+    console.log('💰 Applying budget_min filter for listings:', filters.budget_min);
+    // Apply only when kind=listing AND price_aed >= budget_min, OR when kind != listing (pass through)
+    query = query.or(`and(data->>kind.eq.listing,data->>price_aed.gte.${filters.budget_min}),data->>kind.neq.listing`);
+  }
+
+  if (filters.budget_max && filters.budget_max > 0) {
+    console.log('💰 Applying budget_max filter for listings:', filters.budget_max);
+    // Apply only when kind=listing AND (price_aed <= budget_max OR budget_max_aed = 1), OR when kind != listing
+    query = query.or(`and(data->>kind.eq.listing,or(data->>price_aed.lte.${filters.budget_max},data->>budget_max_aed.eq.1)),data->>kind.neq.listing`);
+  }
+
+  // G) Listing price for client_requests only (treat 0 as no filter)
+  if (filters.price_aed && filters.price_aed > 0) {
+    console.log('💰 Applying price_aed filter for client_requests:', filters.price_aed);
+    // Apply only when kind=client_request AND (budget_min <= price <= budget_max OR budget_max_aed = 1), OR when kind != client_request
+    query = query.or(`and(data->>kind.eq.client_request,and(data->>budget_min_aed.lte.${filters.price_aed},or(data->>budget_max_aed.gte.${filters.price_aed},data->>budget_max_aed.eq.1))),data->>kind.neq.client_request`);
+  }
+
+  // H) Area filters (treat 0 as no filter)
+  if (filters.area_sqft_min && filters.area_sqft_min > 0) {
+    console.log('📐 Applying area_sqft_min filter:', filters.area_sqft_min);
+    query = query.gte('data->>area_sqft', filters.area_sqft_min.toString());
+  }
+  
+  if (filters.area_sqft_max && filters.area_sqft_max > 0) {
+    console.log('📐 Applying area_sqft_max filter:', filters.area_sqft_max);
+    query = query.lte('data->>area_sqft', filters.area_sqft_max.toString());
+  }
+
+  // Handle boolean filters with proper null handling
+  if (filters.is_off_plan !== undefined) {
+    console.log('🏗️ Applying is_off_plan filter:', filters.is_off_plan);
+    if (filters.is_off_plan === true) {
+      query = query.eq('data->>is_off_plan', 'true');
+    } else {
+      // When false, include both explicit false and null values
+      query = query.or('data->>is_off_plan.eq.false,data->>is_off_plan.is.null');
+    }
+  }
+  
+  if (filters.is_distressed_deal !== undefined) {
+    console.log('🔥 Applying is_distressed_deal filter:', filters.is_distressed_deal);
+    if (filters.is_distressed_deal === true) {
+      query = query.eq('data->>is_distressed_deal', 'true');
+    } else {
+      // When false, include both explicit false and null values
+      query = query.or('data->>is_distressed_deal.eq.false,data->>is_distressed_deal.is.null');
     }
   }
 
-  // Handle communities filter (different field names)
-  if (filters.communities && filters.communities.length > 0) {
-    const validCommunities = filters.communities.filter(c => c && c !== 'null');
-    
-    if (validCommunities.length > 0) {
-      if (filters.unit_kind === 'listing') {
-        // For listings, use 'community' field (scalar)
-        query = query.in('data->>community', validCommunities);
-      } else if (filters.unit_kind === 'client_request') {
-        // For client_request, use 'communities' field (array)
-        if (validCommunities.length === 1) {
-          query = query.contains('data->communities', [validCommunities[0]]);
-        }
-      }
-    }
-  }
-
-  // Handle area filters (simplified - no complex OR logic for now)
-  if (filters.area_sqft_min) {
-    query = query.gte('data->>area_sqft', filters.area_sqft_min);
-  }
-  if (filters.area_sqft_max) {
-    query = query.lte('data->>area_sqft', filters.area_sqft_max);
-  }
-
-  // Handle price filters (simplified - basic range checks only)
-  if (filters.unit_kind === 'listing') {
-    if (filters.budget_min) {
-      query = query.gte('data->>price_aed', filters.budget_min);
-    }
-    if (filters.budget_max) {
-      query = query.lte('data->>price_aed', filters.budget_max);
-    }
-  } else if (filters.unit_kind === 'client_request' && filters.price_aed) {
-    query = query.lte('data->>budget_min_aed', filters.price_aed);
-    query = query.gte('data->>budget_max_aed', filters.price_aed);
-  }
-
-  // Handle boolean filters (simplified)
-  if (filters.is_off_plan === true) {
-    query = query.eq('data->>is_off_plan', true);
-  }
-  if (filters.is_distressed_deal === true) {
-    query = query.eq('data->>is_distressed_deal', true);
-  }
-
-  // Handle keyword search
-  if (filters.keyword_search) {
+  // Handle keyword search in message_body_raw
+  if (filters.keyword_search && filters.keyword_search.trim()) {
+    console.log('🔍 Applying keyword search:', filters.keyword_search);
     query = query.ilike('data->>message_body_raw', `%${filters.keyword_search}%`);
   }
 
-  // Apply ordering and pagination
-  query = query.order('updated_at', { ascending: false });
+  // Static sanity checks - ensure required fields are not null (following SQL logic)
+  query = query
+    .not('data->bedrooms', 'is', null)
+    .not('data->communities', 'is', null)
+    .not('data->>kind', 'is', null)
+    .not('data->>transaction_type', 'is', null)
+    .not('data->property_type', 'is', null);
 
-  if (filters.pageSize) {
-    query = query.limit(filters.pageSize);
-  }
+  // Handle pagination
+  const page = filters.page || 0;
+  const pageSize = filters.pageSize || 50;
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+  
+  query = query.range(from, to);
 
-  if (filters.page && filters.pageSize) {
-    const offset = filters.page * filters.pageSize;
-    query = query.range(offset, offset + filters.pageSize - 1);
-  }
-
+  // Execute query
   const { data, error } = await query;
-
+  
   if (error) {
+    console.error('Supabase query error:', error);
     throw new Error(`Supabase query error: ${error.message}`);
-  }
-
-  // Debug: Log a sample of the returned data to understand structure
-  if (data && data.length > 0) {
-    if (filters.unit_kind === 'client_request' && filters.bedrooms?.includes('1')) {
-      console.log('🔍 Sample client_request data:', data.slice(0, 2).map(item => ({
-        pk: item.pk,
-        bedrooms: item.data?.bedrooms,
-        property_type: item.data?.property_type,
-        kind: item.data?.kind,
-        transaction_type: item.data?.transaction_type
-      })));
-    } else if (filters.unit_kind === 'listing' && filters.property_type?.length > 0) {
-      console.log('🔍 Sample listing data with property_type:', data.slice(0, 2).map(item => ({
-        pk: item.pk,
-        bedrooms: item.data?.bedrooms,
-        property_type: item.data?.property_type,
-        kind: item.data?.kind,
-        transaction_type: item.data?.transaction_type
-      })));
-    }
   }
 
   console.log(`Query returned ${data?.length || 0} properties`);
@@ -172,10 +178,15 @@ export async function getFilterOptionsWithSupabase() {
   }
 
   try {
-    // Get all data to process filter options
+    // Get all data to process filter options with sanity checks
     const { data, error } = await supabase
       .from('inventory_unit_preference')
       .select('data')
+      .not('data->bedrooms', 'is', null)
+      .not('data->communities', 'is', null)
+      .not('data->>kind', 'is', null)
+      .not('data->>transaction_type', 'is', null)
+      .not('data->property_type', 'is', null)
       .limit(5000);
 
     if (error) {
@@ -201,7 +212,7 @@ export async function getFilterOptionsWithSupabase() {
         transactionTypes.add(jsonData.transaction_type);
       }
       
-      // Extract property types
+      // Extract property types (always arrays based on SQL)
       if (jsonData?.property_type) {
         if (Array.isArray(jsonData.property_type)) {
           jsonData.property_type.forEach((pt: string) => pt && propertyTypes.add(pt));
@@ -210,7 +221,7 @@ export async function getFilterOptionsWithSupabase() {
         }
       }
       
-      // Extract bedrooms
+      // Extract bedrooms (always arrays based on SQL)
       if (jsonData?.bedrooms !== undefined) {
         if (Array.isArray(jsonData.bedrooms)) {
           jsonData.bedrooms.forEach((b: any) => {
@@ -223,14 +234,20 @@ export async function getFilterOptionsWithSupabase() {
         }
       }
       
-      // Extract communities from both fields
+      // Extract communities from both 'communities' and 'community' fields (as per SQL)
       if (jsonData?.communities) {
         if (Array.isArray(jsonData.communities)) {
           jsonData.communities.forEach((c: string) => c && c !== 'null' && communities.add(c));
+        } else {
+          communities.add(jsonData.communities);
         }
       }
       if (jsonData?.community && jsonData.community !== 'null') {
-        communities.add(jsonData.community);
+        if (Array.isArray(jsonData.community)) {
+          jsonData.community.forEach((c: string) => c && communities.add(c));
+        } else {
+          communities.add(jsonData.community);
+        }
       }
     });
 
