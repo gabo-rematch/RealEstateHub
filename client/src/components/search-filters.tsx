@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -266,6 +266,55 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const isMobile = useIsMobile();
 
+  // Local state for number inputs to prevent queries while typing
+  const [localNumberInputs, setLocalNumberInputs] = useState({
+    area_sqft_min: filters.area_sqft_min?.toString() || "",
+    area_sqft_max: filters.area_sqft_max?.toString() || "",
+    budget_min: filters.budget_min?.toString() || "",
+    budget_max: filters.budget_max?.toString() || "",
+    price_aed: filters.price_aed?.toString() || "",
+  });
+
+  // Debounced update for number inputs
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const updates: Partial<SearchFilters> = {};
+      
+      if (localNumberInputs.area_sqft_min !== (filters.area_sqft_min?.toString() || "")) {
+        updates.area_sqft_min = localNumberInputs.area_sqft_min ? parseInt(localNumberInputs.area_sqft_min.replace(/,/g, '')) : undefined;
+      }
+      if (localNumberInputs.area_sqft_max !== (filters.area_sqft_max?.toString() || "")) {
+        updates.area_sqft_max = localNumberInputs.area_sqft_max ? parseInt(localNumberInputs.area_sqft_max.replace(/,/g, '')) : undefined;
+      }
+      if (localNumberInputs.budget_min !== (filters.budget_min?.toString() || "")) {
+        updates.budget_min = localNumberInputs.budget_min ? parseInt(localNumberInputs.budget_min.replace(/,/g, '')) : undefined;
+      }
+      if (localNumberInputs.budget_max !== (filters.budget_max?.toString() || "")) {
+        updates.budget_max = localNumberInputs.budget_max ? parseInt(localNumberInputs.budget_max.replace(/,/g, '')) : undefined;
+      }
+      if (localNumberInputs.price_aed !== (filters.price_aed?.toString() || "")) {
+        updates.price_aed = localNumberInputs.price_aed ? parseInt(localNumberInputs.price_aed.replace(/,/g, '')) : undefined;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        onFiltersChange({ ...filters, ...updates });
+      }
+    }, 1000); // 1 second debounce
+
+    return () => clearTimeout(timer);
+  }, [localNumberInputs, filters, onFiltersChange]);
+
+  // Update local state when filters change externally
+  useEffect(() => {
+    setLocalNumberInputs({
+      area_sqft_min: filters.area_sqft_min?.toString() || "",
+      area_sqft_max: filters.area_sqft_max?.toString() || "",
+      budget_min: filters.budget_min?.toString() || "",
+      budget_max: filters.budget_max?.toString() || "",
+      price_aed: filters.price_aed?.toString() || "",
+    });
+  }, [filters.area_sqft_min, filters.area_sqft_max, filters.budget_min, filters.budget_max, filters.price_aed]);
+
   // Fetch dynamic filter options from the database
   const { data: filterOptions = {} } = useQuery({
     queryKey: ['filter-options'],
@@ -281,6 +330,34 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
   const updateFilter = (key: keyof SearchFilters, value: any) => {
     onFiltersChange({ ...filters, [key]: value });
   };
+
+  // Helper function to update local number inputs
+  const updateLocalNumberInput = (key: keyof typeof localNumberInputs, value: string) => {
+    setLocalNumberInputs(prev => ({ ...prev, [key]: value }));
+  };
+
+  // Helper function to apply all pending number input changes immediately
+  const applyNumberInputs = useCallback(() => {
+    const updates: Partial<SearchFilters> = {};
+    
+    if (localNumberInputs.area_sqft_min) {
+      updates.area_sqft_min = parseInt(localNumberInputs.area_sqft_min.replace(/,/g, ''));
+    }
+    if (localNumberInputs.area_sqft_max) {
+      updates.area_sqft_max = parseInt(localNumberInputs.area_sqft_max.replace(/,/g, ''));
+    }
+    if (localNumberInputs.budget_min) {
+      updates.budget_min = parseInt(localNumberInputs.budget_min.replace(/,/g, ''));
+    }
+    if (localNumberInputs.budget_max) {
+      updates.budget_max = parseInt(localNumberInputs.budget_max.replace(/,/g, ''));
+    }
+    if (localNumberInputs.price_aed) {
+      updates.price_aed = parseInt(localNumberInputs.price_aed.replace(/,/g, ''));
+    }
+
+    onFiltersChange({ ...filters, ...updates });
+  }, [localNumberInputs, filters, onFiltersChange]);
 
   const removeFilter = (key: keyof SearchFilters, value?: string) => {
     if (key === 'bedrooms' && value) {
@@ -408,14 +485,16 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
               <Input
                 type="text"
                 placeholder="Min (e.g., 1,000)"
-                value={filters.area_sqft_min ? formatNumberWithCommas(filters.area_sqft_min) : ""}
-                onChange={(e) => updateFilter('area_sqft_min', parseNumberFromFormatted(e.target.value))}
+                value={localNumberInputs.area_sqft_min}
+                onChange={(e) => updateLocalNumberInput('area_sqft_min', e.target.value)}
+                onBlur={applyNumberInputs}
               />
               <Input
                 type="text"
                 placeholder="Max (e.g., 5,000)"
-                value={filters.area_sqft_max ? formatNumberWithCommas(filters.area_sqft_max) : ""}
-                onChange={(e) => updateFilter('area_sqft_max', parseNumberFromFormatted(e.target.value))}
+                value={localNumberInputs.area_sqft_max}
+                onChange={(e) => updateLocalNumberInput('area_sqft_max', e.target.value)}
+                onBlur={applyNumberInputs}
               />
             </div>
           </div>
@@ -443,8 +522,9 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
               <Input
                 type="text"
                 placeholder="e.g., 750,000"
-                value={filters.price_aed ? formatNumberWithCommas(filters.price_aed) : ""}
-                onChange={(e) => updateFilter('price_aed', parseNumberFromFormatted(e.target.value))}
+                value={localNumberInputs.price_aed}
+                onChange={(e) => updateLocalNumberInput('price_aed', e.target.value)}
+                onBlur={applyNumberInputs}
               />
             </div>
           ) : (
@@ -456,14 +536,16 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 <Input
                   type="text"
                   placeholder="Min (e.g., 100,000)"
-                  value={filters.budget_min ? formatNumberWithCommas(filters.budget_min) : ""}
-                  onChange={(e) => updateFilter('budget_min', parseNumberFromFormatted(e.target.value))}
+                  value={localNumberInputs.budget_min}
+                  onChange={(e) => updateLocalNumberInput('budget_min', e.target.value)}
+                  onBlur={applyNumberInputs}
                 />
                 <Input
                   type="text"
                   placeholder="Max (e.g., 1,000,000)"
-                  value={filters.budget_max ? formatNumberWithCommas(filters.budget_max) : ""}
-                  onChange={(e) => updateFilter('budget_max', parseNumberFromFormatted(e.target.value))}
+                  value={localNumberInputs.budget_max}
+                  onChange={(e) => updateLocalNumberInput('budget_max', e.target.value)}
+                  onBlur={applyNumberInputs}
                 />
               </div>
             </div>
@@ -557,7 +639,10 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
               )}
             </Button>
             <Button 
-              onClick={onSearch}
+              onClick={() => {
+                applyNumberInputs();
+                onSearch();
+              }}
               disabled={isLoading}
               className="px-8"
             >
