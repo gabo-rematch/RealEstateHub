@@ -276,12 +276,21 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
     price_aed: filters.price_aed?.toString() || "",
   });
 
-  // Debounced function to prevent rapid state updates during typing
-  const updateTimeout = useRef<NodeJS.Timeout>();
+  // Use refs for smooth typing combined with state for persistence
+  const areaMinRef = useRef<HTMLInputElement>(null);
+  const areaMaxRef = useRef<HTMLInputElement>(null);
+  const budgetMinRef = useRef<HTMLInputElement>(null);
+  const budgetMaxRef = useRef<HTMLInputElement>(null);
+  const priceRef = useRef<HTMLInputElement>(null);
   
-  const updateLocalInput = (key: keyof typeof localInputs, value: string) => {
-    setLocalInputs(prev => ({ ...prev, [key]: value }));
-  };
+  // Sync input refs with local state for persistence
+  useEffect(() => {
+    if (areaMinRef.current) areaMinRef.current.value = localInputs.area_sqft_min;
+    if (areaMaxRef.current) areaMaxRef.current.value = localInputs.area_sqft_max;
+    if (budgetMinRef.current) budgetMinRef.current.value = localInputs.budget_min;
+    if (budgetMaxRef.current) budgetMaxRef.current.value = localInputs.budget_max;
+    if (priceRef.current) priceRef.current.value = localInputs.price_aed;
+  }, [localInputs]);
 
   // Sync local inputs with filter state only when filters change externally (not from our updates)
   useEffect(() => {
@@ -322,43 +331,53 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
   const applyNumberInputs = useCallback(() => {
     const updates: Partial<SearchFilters> = {};
     
-    if (localInputs.area_sqft_min) {
-      const parsed = parseInt(localInputs.area_sqft_min.replace(/,/g, ''));
+    // Update local state from current input values first for persistence
+    const currentValues = {
+      area_sqft_min: areaMinRef.current?.value || "",
+      area_sqft_max: areaMaxRef.current?.value || "",
+      budget_min: budgetMinRef.current?.value || "",
+      budget_max: budgetMaxRef.current?.value || "",
+      price_aed: priceRef.current?.value || "",
+    };
+    setLocalInputs(currentValues);
+    
+    if (currentValues.area_sqft_min) {
+      const parsed = parseInt(currentValues.area_sqft_min.replace(/,/g, ''));
       if (!isNaN(parsed)) updates.area_sqft_min = parsed;
     } else {
       updates.area_sqft_min = undefined;
     }
     
-    if (localInputs.area_sqft_max) {
-      const parsed = parseInt(localInputs.area_sqft_max.replace(/,/g, ''));
+    if (currentValues.area_sqft_max) {
+      const parsed = parseInt(currentValues.area_sqft_max.replace(/,/g, ''));
       if (!isNaN(parsed)) updates.area_sqft_max = parsed;
     } else {
       updates.area_sqft_max = undefined;
     }
     
-    if (localInputs.budget_min) {
-      const parsed = parseInt(localInputs.budget_min.replace(/,/g, ''));
+    if (currentValues.budget_min) {
+      const parsed = parseInt(currentValues.budget_min.replace(/,/g, ''));
       if (!isNaN(parsed)) updates.budget_min = parsed;
     } else {
       updates.budget_min = undefined;
     }
     
-    if (localInputs.budget_max) {
-      const parsed = parseInt(localInputs.budget_max.replace(/,/g, ''));
+    if (currentValues.budget_max) {
+      const parsed = parseInt(currentValues.budget_max.replace(/,/g, ''));
       if (!isNaN(parsed)) updates.budget_max = parsed;
     } else {
       updates.budget_max = undefined;
     }
     
-    if (localInputs.price_aed) {
-      const parsed = parseInt(localInputs.price_aed.replace(/,/g, ''));
+    if (currentValues.price_aed) {
+      const parsed = parseInt(currentValues.price_aed.replace(/,/g, ''));
       if (!isNaN(parsed)) updates.price_aed = parsed;
     } else {
       updates.price_aed = undefined;
     }
 
     onFiltersChange({ ...filters, ...updates });
-  }, [localInputs, filters, onFiltersChange]);
+  }, [filters, onFiltersChange]);
 
   const removeFilter = (key: keyof SearchFilters, value?: string) => {
     if (key === 'bedrooms' && value) {
@@ -493,17 +512,15 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
             </Label>
             <div className="grid grid-cols-2 gap-2">
               <Input
+                ref={areaMinRef}
                 type="text"
                 placeholder="Min (e.g., 1,000)"
-                value={localInputs.area_sqft_min}
-                onChange={(e) => updateLocalInput('area_sqft_min', e.target.value)}
                 onBlur={applyNumberInputs}
               />
               <Input
+                ref={areaMaxRef}
                 type="text"
                 placeholder="Max (e.g., 5,000)"
-                value={localInputs.area_sqft_max}
-                onChange={(e) => updateLocalInput('area_sqft_max', e.target.value)}
                 onBlur={applyNumberInputs}
               />
             </div>
@@ -530,10 +547,9 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
                 Listing Price (AED)
               </Label>
               <Input
+                ref={priceRef}
                 type="text"
                 placeholder="e.g., 750,000"
-                value={localInputs.price_aed}
-                onChange={(e) => updateLocalInput('price_aed', e.target.value)}
                 onBlur={applyNumberInputs}
               />
             </div>
@@ -544,17 +560,15 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
               </Label>
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <Input
+                  ref={budgetMinRef}
                   type="text"
                   placeholder="Min (e.g., 100,000)"
-                  value={localInputs.budget_min}
-                  onChange={(e) => updateLocalInput('budget_min', e.target.value)}
                   onBlur={applyNumberInputs}
                 />
                 <Input
+                  ref={budgetMaxRef}
                   type="text"
                   placeholder="Max (e.g., 1,000,000)"
-                  value={localInputs.budget_max}
-                  onChange={(e) => updateLocalInput('budget_max', e.target.value)}
                   onBlur={applyNumberInputs}
                 />
               </div>
