@@ -108,23 +108,22 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
     }
   }
 
-  // Handle communities filter for both 'community' and 'communities' fields
+  // Handle communities filter using individual filters to avoid PostgREST JSON syntax issues
   if (filters.communities && filters.communities.length > 0) {
     const validCommunities = filters.communities.filter(c => c && c !== 'null');
     
     if (validCommunities.length > 0) {
-      // Use a simpler approach with individual filters
-      if (validCommunities.length === 1) {
-        const community = validCommunities[0];
-        query = query.or(`data->>community.eq."${community}",data->communities.cs.["${community}"]`);
-      } else {
-        // For multiple communities, check each one individually
-        const orConditions = validCommunities.flatMap(community => [
-          `data->>community.eq."${community}"`,
-          `data->communities.cs.["${community}"]`
-        ]);
-        query = query.or(orConditions.join(','));
+      // Build separate conditions for each community to avoid complex OR syntax
+      const communityConditions = [];
+      
+      for (const community of validCommunities) {
+        // For scalar community field (listings)
+        communityConditions.push(`data->>community.eq.${community}`);
+        // For array communities field (client_requests)  
+        communityConditions.push(`data->communities.cs.[${community}]`);
       }
+      
+      query = query.or(communityConditions.join(','));
     }
   }
 
