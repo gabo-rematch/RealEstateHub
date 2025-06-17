@@ -274,23 +274,40 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
   const budgetMaxRef = useRef<HTMLInputElement>(null);
   const priceRef = useRef<HTMLInputElement>(null);
 
-  // Initialize input values when component mounts or filters change externally
+  // Track if we just applied filters to avoid overwriting user input
+  const justAppliedFiltersRef = useRef(false);
+
+  // Initialize input values when component mounts or when filters are cleared externally
   useEffect(() => {
-    if (areaMinRef.current) {
-      areaMinRef.current.value = filters.area_sqft_min?.toString() || "";
+    // Only update if we just applied filters or if the field is empty
+    if (justAppliedFiltersRef.current || (areaMinRef.current && areaMinRef.current.value === "")) {
+      if (areaMinRef.current) {
+        areaMinRef.current.value = filters.area_sqft_min?.toString() || "";
+      }
     }
-    if (areaMaxRef.current) {
-      areaMaxRef.current.value = filters.area_sqft_max?.toString() || "";
+    if (justAppliedFiltersRef.current || (areaMaxRef.current && areaMaxRef.current.value === "")) {
+      if (areaMaxRef.current) {
+        areaMaxRef.current.value = filters.area_sqft_max?.toString() || "";
+      }
     }
-    if (budgetMinRef.current) {
-      budgetMinRef.current.value = filters.budget_min?.toString() || "";
+    if (justAppliedFiltersRef.current || (budgetMinRef.current && budgetMinRef.current.value === "")) {
+      if (budgetMinRef.current) {
+        budgetMinRef.current.value = filters.budget_min?.toString() || "";
+      }
     }
-    if (budgetMaxRef.current) {
-      budgetMaxRef.current.value = filters.budget_max?.toString() || "";
+    if (justAppliedFiltersRef.current || (budgetMaxRef.current && budgetMaxRef.current.value === "")) {
+      if (budgetMaxRef.current) {
+        budgetMaxRef.current.value = filters.budget_max?.toString() || "";
+      }
     }
-    if (priceRef.current) {
-      priceRef.current.value = filters.price_aed?.toString() || "";
+    if (justAppliedFiltersRef.current || (priceRef.current && priceRef.current.value === "")) {
+      if (priceRef.current) {
+        priceRef.current.value = filters.price_aed?.toString() || "";
+      }
     }
+    
+    // Reset the flag after updating
+    justAppliedFiltersRef.current = false;
   }, [filters.area_sqft_min, filters.area_sqft_max, filters.budget_min, filters.budget_max, filters.price_aed]);
 
   // Fetch dynamic filter options from the database
@@ -348,6 +365,8 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
       updates.price_aed = undefined;
     }
 
+    // Set flag to indicate we're applying filters
+    justAppliedFiltersRef.current = true;
     onFiltersChange({ ...filters, ...updates });
   }, [filters, onFiltersChange]);
 
@@ -367,6 +386,13 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
   };
 
   const clearAllFilters = () => {
+    // Clear all input field values
+    if (areaMinRef.current) areaMinRef.current.value = "";
+    if (areaMaxRef.current) areaMaxRef.current.value = "";
+    if (budgetMinRef.current) budgetMinRef.current.value = "";
+    if (budgetMaxRef.current) budgetMaxRef.current.value = "";
+    if (priceRef.current) priceRef.current.value = "";
+    
     onFiltersChange({
       unit_kind: '',
       transaction_type: '',
