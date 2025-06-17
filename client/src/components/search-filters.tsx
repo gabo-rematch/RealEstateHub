@@ -274,23 +274,23 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
   const budgetMaxRef = useRef<HTMLInputElement>(null);
   const priceRef = useRef<HTMLInputElement>(null);
 
-  // Initialize input values on mount and when filters are applied
+  // Track if we're programmatically updating from filter state to avoid overriding user input
+  const isUpdatingFromFilters = useRef(false);
+
+  // Initialize input values on mount and when filters are cleared (not when applied)
   useEffect(() => {
-    // Always sync input values with filter state
-    if (areaMinRef.current) {
-      areaMinRef.current.value = filters.area_sqft_min?.toString() || "";
-    }
-    if (areaMaxRef.current) {
-      areaMaxRef.current.value = filters.area_sqft_max?.toString() || "";
-    }
-    if (budgetMinRef.current) {
-      budgetMinRef.current.value = filters.budget_min?.toString() || "";
-    }
-    if (budgetMaxRef.current) {
-      budgetMaxRef.current.value = filters.budget_max?.toString() || "";
-    }
-    if (priceRef.current) {
-      priceRef.current.value = filters.price_aed?.toString() || "";
+    // Only update inputs when all number filters are cleared (reset scenario)
+    const allNumberFiltersEmpty = !filters.area_sqft_min && !filters.area_sqft_max && 
+                                 !filters.budget_min && !filters.budget_max && !filters.price_aed;
+    
+    if (allNumberFiltersEmpty) {
+      isUpdatingFromFilters.current = true;
+      if (areaMinRef.current) areaMinRef.current.value = "";
+      if (areaMaxRef.current) areaMaxRef.current.value = "";
+      if (budgetMinRef.current) budgetMinRef.current.value = "";
+      if (budgetMaxRef.current) budgetMaxRef.current.value = "";
+      if (priceRef.current) priceRef.current.value = "";
+      isUpdatingFromFilters.current = false;
     }
   }, [filters.area_sqft_min, filters.area_sqft_max, filters.budget_min, filters.budget_max, filters.price_aed]);
 
