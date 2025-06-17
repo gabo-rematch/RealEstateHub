@@ -59,35 +59,39 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     query = query.eq('data->>transaction_type', filters.transaction_type);
   }
 
-  // C) Bedrooms multiselect - use array overlap logic (&&)
+  // C) Bedrooms multiselect - handle both scalar and array formats
   if (filters.bedrooms && filters.bedrooms.length > 0) {
     const bedroomNumbers = filters.bedrooms.map(b => parseInt(b, 10)).filter(b => !isNaN(b));
     if (bedroomNumbers.length > 0) {
       console.log('🛏️ Applying bedrooms filter:', bedroomNumbers);
-      // Single bedroom - use contains
       if (bedroomNumbers.length === 1) {
-        query = query.filter('data->bedrooms', 'cs', JSON.stringify([bedroomNumbers[0]]));
+        const bedroom = bedroomNumbers[0];
+        // Handle both scalar and array formats with OR
+        query = query.or(`data->bedrooms.cs.[${bedroom}],data->>bedrooms.eq.${bedroom}`);
       } else {
-        // Multiple bedrooms - use OR with contains for each
-        const bedroomConditions = bedroomNumbers.map(bedroom => 
-          `data->bedrooms.cs.${JSON.stringify([bedroom])}`
-        );
+        // Multiple bedrooms - use OR for each value in both formats
+        const bedroomConditions = bedroomNumbers.flatMap(bedroom => [
+          `data->bedrooms.cs.[${bedroom}]`,  // Array format
+          `data->>bedrooms.eq.${bedroom}`    // Scalar format
+        ]);
         query = query.or(bedroomConditions.join(','));
       }
     }
   }
 
-  // D) Property type multiselect - use array overlap logic (&&)
+  // D) Property type multiselect - handle both scalar and array formats
   if (filters.property_type && filters.property_type.length > 0) {
     console.log('🏢 Applying property_type filter:', filters.property_type);
-    // Single property type - use contains
     if (filters.property_type.length === 1) {
-      query = query.filter('data->property_type', 'cs', JSON.stringify([filters.property_type[0]]));
+      const propertyType = filters.property_type[0];
+      // Handle both scalar and array formats with OR
+      query = query.or(`data->property_type.cs.["${propertyType}"],data->>property_type.eq.${propertyType}`);
     } else {
-      // Multiple property types - use OR with contains for each
-      const propertyTypeConditions = filters.property_type.map(propertyType => 
-        `data->property_type.cs.${JSON.stringify([propertyType])}`
-      );
+      // Multiple property types - use OR for each value in both formats
+      const propertyTypeConditions = filters.property_type.flatMap(propertyType => [
+        `data->property_type.cs.["${propertyType}"]`,  // Array format
+        `data->>property_type.eq.${propertyType}`      // Scalar format
+      ]);
       query = query.or(propertyTypeConditions.join(','));
     }
   }
