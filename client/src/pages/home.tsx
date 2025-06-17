@@ -306,7 +306,7 @@ export default function Home() {
 
           {/* Property Results */}
           <div className="lg:col-span-8 xl:col-span-9 mt-6 lg:mt-0">
-            {hasSearched ? (
+            {(hasSearched || properties.length > 0) ? (
               <>
                 {/* Keyword Search Bar */}
                 <div className="mb-6">
