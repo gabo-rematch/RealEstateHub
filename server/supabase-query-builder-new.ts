@@ -206,6 +206,65 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     const data = record.data;
     const agentDetails = record.inventory_unit?.agent_details || {};
 
+    // Handle communities field properly - extract from message_body_raw and other fields
+    let communities = [];
+    
+    // First check explicit community fields
+    if (data.communities) {
+      communities = Array.isArray(data.communities) ? data.communities : [data.communities];
+    } else if (data.community) {
+      communities = Array.isArray(data.community) ? data.community : [data.community];
+    } else if (data.location_raw) {
+      // Extract community from location_raw field
+      const locationText = data.location_raw.toString();
+      communities = [locationText];
+    } else if (data.message_body_raw) {
+      // Extract community from message text using common patterns
+      const messageText = data.message_body_raw.toString();
+      const communityPatterns = [
+        /JLT|Jumeirah Lake Towers/i,
+        /JVC|Jumeirah Village Circle/i,
+        /Dubai Hills Estate/i,
+        /Downtown Dubai/i,
+        /Business Bay/i,
+        /Dubai Marina/i,
+        /Palm Jumeirah/i,
+        /DIFC/i,
+        /Al Barsha/i,
+        /Discovery Gardens/i,
+        /International City/i,
+        /Sports City/i,
+        /Motor City/i,
+        /Arabian Ranches/i,
+        /The Greens/i,
+        /Emirates Hills/i,
+        /Meydan/i,
+        /City Walk/i,
+        /Al Furjan/i,
+        /Mudon/i,
+        /Town Square/i,
+        /DAMAC Hills/i
+      ];
+      
+      for (const pattern of communityPatterns) {
+        const match = messageText.match(pattern);
+        if (match) {
+          let communityName = match[0];
+          // Normalize community names
+          if (communityName.toLowerCase().includes('jlt')) {
+            communityName = 'Jumeirah Lake Towers';
+          } else if (communityName.toLowerCase().includes('jvc')) {
+            communityName = 'Jumeirah Village Circle';
+          }
+          communities = [communityName];
+          break;
+        }
+      }
+    }
+    
+    // Filter out empty/null communities
+    communities = communities.filter((c: any) => c && c.toString().trim());
+
     return {
       pk: record.pk,
       id: record.id,
@@ -213,7 +272,7 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
       transaction_type: data.transaction_type,
       bedrooms: Array.isArray(data.bedrooms) ? data.bedrooms : (data.bedrooms ? [data.bedrooms] : []),
       property_type: Array.isArray(data.property_type) ? data.property_type : (data.property_type ? [data.property_type] : []),
-      communities: Array.isArray(data.communities) ? data.communities : (data.communities ? [data.communities] : []),
+      communities: communities,
       price_aed: data.price_aed || null,
       budget_max_aed: data.budget_max_aed || null,
       budget_min_aed: data.budget_min_aed || null,
