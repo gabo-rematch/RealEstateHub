@@ -405,14 +405,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (useSupabase) {
         const filterOptions = await getFilterOptionsWithSupabase();
+        // Debug the received filterOptions
+        console.log('Received filterOptions keys:', Object.keys(filterOptions));
+        console.log('transaction_types:', filterOptions.transaction_types);
+        console.log('property_types:', filterOptions.property_types);
+        
         // Use the communities from Supabase function instead of overriding
-        res.json({
-          kinds: filterOptions.kinds,
-          transactionTypes: filterOptions.transaction_types,
-          propertyTypes: filterOptions.property_types,
-          bedrooms: filterOptions.bedrooms,
-          communities: filterOptions.communities
-        });
+        const response = {
+          kinds: filterOptions.kinds || ['listing', 'client_request'],
+          transactionTypes: filterOptions.transaction_types || ['sale', 'rent'],
+          propertyTypes: filterOptions.property_types || ['apartment', 'villa'],
+          bedrooms: filterOptions.bedrooms || ['studio', '1', '2', '3'],
+          communities: filterOptions.communities || []
+        };
+        
+        console.log('Sending response keys:', Object.keys(response));
+        res.json(response);
         return;
       }
       // Get unique kinds
