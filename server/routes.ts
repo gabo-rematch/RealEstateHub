@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { queryDatabase, testConnection } from "./database";
-import { queryPropertiesWithSupabase, getFilterOptionsWithSupabase } from "./supabase-query-builder";
+import { queryPropertiesWithSupabase, getFilterOptionsWithSupabase } from "./supabase-query-builder-new";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Test database connection on startup
