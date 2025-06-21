@@ -105,13 +105,92 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     throw new Error('Supabase client not configured');
   }
 
-  // Execute multiple queries to bypass 1000 record limit
-  let allData: any[] = [];
-  let currentPage = 0;
-  const batchSize = 1000; // Supabase limit per query
-  let hasMoreData = true;
+  // Efficient pagination strategy - fetch only what's needed
+  const requestedPageSize = filters.pageSize || 50;
+  const requestedPage = filters.page || 0;
+  
+  // For small page sizes, use direct pagination for speed
+  if (requestedPageSize <= 100) {
+    const directOffset = requestedPage * requestedPageSize;
+    let query = supabase
+      .from('inventory_unit_preference')
+      .select(`
+        pk,
+        id,
+        data,
+        updated_at,
+        inventory_unit:inventory_unit_pk(agent_details)
+      `)
+      .not('data->>kind', 'is', null)
+      .not('data->>transaction_type', 'is', null);
 
-  while (hasMoreData && allData.length < 100000) {
+    // Apply basic filters
+    if (filters.unit_kind) {
+      query = query.eq('data->>kind', filters.unit_kind);
+    }
+    if (filters.transaction_type) {
+      query = query.eq('data->>transaction_type', filters.transaction_type);
+    }
+
+    // Apply simple filters that work well with PostgREST
+    if (filters.bedrooms && filters.bedrooms.length === 1) {
+      query = query.or(`data->>bedrooms.eq."${filters.bedrooms[0]}",data->bedrooms.cs.["${filters.bedrooms[0]}"]`);
+    }
+    if (filters.property_type && filters.property_type.length === 1) {
+      query = query.or(`data->>property_type.eq."${filters.property_type[0]}",data->property_type.cs.["${filters.property_type[0]}"]`);
+    }
+
+    // Boolean filters
+    if (filters.is_off_plan !== undefined) {
+      if (filters.is_off_plan === true) {
+        query = query.eq('data->>is_off_plan', 'true');
+      } else {
+        query = query.or('data->>is_off_plan.eq.false,data->>is_off_plan.is.null');
+      }
+    }
+    if (filters.is_distressed_deal !== undefined) {
+      if (filters.is_distressed_deal === true) {
+        query = query.eq('data->>is_distressed_deal', 'true');
+      } else {
+        query = query.or('data->>is_distressed_deal.eq.false,data->>is_distressed_deal.is.null');
+      }
+    }
+
+    // Keyword search
+    if (filters.keyword_search && filters.keyword_search.trim()) {
+      query = query.ilike('data->>message_body_raw', `%${filters.keyword_search.trim()}%`);
+    }
+
+    // Apply direct pagination
+    query = query.range(directOffset, directOffset + requestedPageSize - 1);
+
+    const { data, error } = await query;
+    
+    if (error) {
+      console.error('Direct query error:', error);
+      throw new Error(`Query failed: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    // Transform and apply post-processing
+    const transformedData = transformDataToExpectedFormat(data);
+    const filteredData = applyPostProcessingFilters(transformedData, filters);
+    
+    console.log(`Direct pagination: returned ${filteredData.length} properties for page ${requestedPage}`);
+    return filteredData;
+  }
+
+  // For larger requests, use batch processing
+  const batchSize = 1000;
+  let allData: any[] = [];
+  let currentBatch = 0;
+  let hasMoreData = true;
+  const maxBatches = Math.ceil(requestedPageSize / batchSize) + 2; // Buffer for filtering
+
+  while (hasMoreData && currentBatch < maxBatches) {
     // Start with base query for each batch
     let query = supabase
       .from('inventory_unit_preference')
@@ -169,7 +248,7 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     }
 
     // Apply pagination for this batch
-    query = query.range(currentPage * batchSize, (currentPage + 1) * batchSize - 1);
+    query = query.range(currentBatch * batchSize, (currentBatch + 1) * batchSize - 1);
 
     const { data: batchData, error: batchError } = await query;
     
@@ -184,13 +263,13 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     }
     
     allData.push(...batchData);
+    totalProcessed += batchData.length;
     
     // Stop if we got less than expected batch size (end of data)
     if (batchData.length < batchSize) {
       hasMoreData = false;
     }
-    
-    currentPage++;
+    currentBatch++;
   }
 
   console.log(`Query returned ${allData.length} properties`);
@@ -200,7 +279,28 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
   }
 
   // Transform the data to match expected format
-  const transformedData = allData.map((record: any) => {
+  const transformedData = transformDataToExpectedFormat(allData);
+
+  // Apply post-processing filtering for complex numeric conditions
+  const filteredData = applyPostProcessingFilters(transformedData, filters);
+  
+  // Apply final pagination to the filtered results
+  if (filters.pageSize && filters.pageSize <= 1000) {
+    const start = (filters.page || 0) * filters.pageSize;
+    const end = start + filters.pageSize;
+    const paginatedData = filteredData.slice(start, end);
+    
+    console.log(`Filtered to ${filteredData.length} properties, returning page ${filters.page || 0} (${paginatedData.length} items)`);
+    return paginatedData;
+  }
+  
+  console.log(`Returning ${filteredData.length} filtered properties`);
+  return filteredData;
+}
+
+// Helper function to transform raw data to expected format
+function transformDataToExpectedFormat(allData: any[]) {
+  return allData.map((record: any) => {
     if (!record.data) return null;
 
     const data = record.data;
@@ -215,11 +315,9 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     } else if (data.community) {
       communities = Array.isArray(data.community) ? data.community : [data.community];
     } else if (data.location_raw) {
-      // Extract community from location_raw field
       const locationText = data.location_raw.toString();
       communities = [locationText];
     } else if (data.message_body_raw) {
-      // Extract community from message text - JLT example shows it's in the message
       const messageText = data.message_body_raw.toString();
       
       // Enhanced pattern matching for communities
@@ -285,9 +383,6 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
       updated_at: record.updated_at
     };
   }).filter(Boolean);
-
-  // Apply post-processing filtering for complex numeric conditions
-  return applyPostProcessingFilters(transformedData, filters);
 }
 
 export async function getFilterOptionsWithSupabase() {
