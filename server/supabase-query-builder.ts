@@ -122,11 +122,12 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     query = query.ilike('data->>message_body_raw', `%${searchTerm}%`);
   }
 
-  // Apply pagination
-  if (filters.page && filters.pageSize) {
+  // Apply pagination only if explicitly requested, otherwise get all results
+  if (filters.page !== undefined && filters.pageSize) {
     const offset = filters.page * filters.pageSize;
     query = query.range(offset, offset + filters.pageSize - 1);
   }
+  // No limits applied when pagination is not requested to get full dataset
 
   const { data, error } = await query;
 
