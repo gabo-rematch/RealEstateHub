@@ -527,5 +527,6 @@ export async function getFilterOptionsWithSupabase() {
     communities_count: finalResult.communities.length
   });
 
+  console.log('Returning complete result:', JSON.stringify(finalResult, null, 2));
   return finalResult;
 }

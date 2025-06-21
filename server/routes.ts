@@ -405,12 +405,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (useSupabase) {
         const filterOptions = await getFilterOptionsWithSupabase();
+        // Use the communities from Supabase function instead of overriding
         res.json({
           kinds: filterOptions.kinds,
-          transactionTypes: filterOptions.transactionTypes,
-          propertyTypes: filterOptions.propertyTypes,
+          transactionTypes: filterOptions.transaction_types,
+          propertyTypes: filterOptions.property_types,
           bedrooms: filterOptions.bedrooms,
-          communities: extractedCommunities
+          communities: filterOptions.communities
         });
         return;
       }
