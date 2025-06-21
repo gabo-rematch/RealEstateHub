@@ -420,6 +420,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
         
         console.log('Sending response keys:', Object.keys(response));
+        console.log('Final response transactionTypes:', response.transactionTypes);
+        console.log('Final response propertyTypes:', response.propertyTypes);
         res.json(response);
         return;
       }

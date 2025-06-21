@@ -450,13 +450,13 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
               }) || []}
               onValuesChange={(values) => {
                 const convertedValues = values.map(v => {
-                  if (v === "Studio") return "0";
+                  if (v === "Studio") return "studio";
                   return v.split(" ")[0]; // Extract number from "X Bedroom(s)"
                 });
                 updateFilter('bedrooms', convertedValues.length === 0 ? undefined : convertedValues);
               }}
-              options={Array.from(new Set((filterOptions.bedrooms as number[])?.map((bedroom: number) => 
-                bedroom === 0 ? "Studio" : `${bedroom} Bedroom${bedroom !== 1 ? "s" : ""}`
+              options={Array.from(new Set((filterOptions.bedrooms as string[])?.map((bedroom: string) => 
+                bedroom === "studio" || bedroom === "0" ? "Studio" : `${bedroom} Bedroom${bedroom !== "1" ? "s" : ""}`
               ))).sort() || []}
               placeholder="Search and select bedrooms..."
               searchPlaceholder="Search bedrooms..."
