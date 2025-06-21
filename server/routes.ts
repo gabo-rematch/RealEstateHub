@@ -453,34 +453,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ORDER BY value
       `);
 
-      // Get unique communities from both 'community' (listing) and 'communities' (client_request) fields
-      const communitiesResult = await queryDatabase(`
-        SELECT DISTINCT community AS value
-        FROM (
-          -- Get communities from client_request records (array field)
-          SELECT UNNEST(
-            CASE
-              WHEN t.data->'communities' IS NULL THEN '{}'::text[]
-              WHEN jsonb_typeof(t.data->'communities') = 'array' THEN (
-                SELECT array_agg(elem)
-                FROM jsonb_array_elements_text(t.data->'communities') AS elem
-              )
-              ELSE ARRAY[ t.data->>'communities' ]
-            END
-          ) AS community
-          FROM inventory_unit_preference AS t
-          WHERE t.data->>'kind' = 'client_request'
-          
-          UNION
-          
-          -- Get community from listing records (scalar field)
-          SELECT t.data->>'community' AS community
-          FROM inventory_unit_preference AS t
-          WHERE t.data->>'kind' = 'listing' AND t.data->>'community' IS NOT NULL
-        ) AS combined_communities
-        WHERE community IS NOT NULL AND community != '' AND community != 'null'
-        ORDER BY value
-      `);
+      // Use predefined UAE communities list
+      const predefinedCommunities = [
+        "Al Barsha",
+        "Al Furjan", 
+        "Al Garhoud",
+        "Al Jaddaf",
+        "Al Karama",
+        "Al Khail Gate",
+        "Al Mizhar",
+        "Al Qusais",
+        "Al Reef",
+        "Al Satwa",
+        "Al Sufouh",
+        "Al Wasl",
+        "Arabian Ranches",
+        "Barsha Heights",
+        "Business Bay",
+        "City Walk",
+        "Culture Village",
+        "DAMAC Hills",
+        "DAMAC Hills 2",
+        "DIFC",
+        "Discovery Gardens",
+        "Downtown Dubai",
+        "Dubai Creek Harbour",
+        "Dubai Festival City",
+        "Dubai Hills Estate",
+        "Dubai Investment Park",
+        "Dubai Land",
+        "Dubai Marina",
+        "Dubai South",
+        "Dubai Sports City",
+        "Dubai Studio City",
+        "Dubai World Central",
+        "Dubailand",
+        "Emirates Hills",
+        "Emirates Living",
+        "Falcon City",
+        "Green Community",
+        "Greens",
+        "International City",
+        "Jumeirah",
+        "Jumeirah Beach Residence",
+        "Jumeirah Golf Estates",
+        "Jumeirah Heights",
+        "Jumeirah Islands",
+        "Jumeirah Lake Towers",
+        "Jumeirah Park",
+        "Jumeirah Village Circle",
+        "Jumeirah Village Triangle",
+        "Liwan",
+        "Meydan City",
+        "Mirdif",
+        "Motor City",
+        "Mudon",
+        "Nad Al Sheba",
+        "Nakhl",
+        "Old Town",
+        "Palm Jebel Ali",
+        "Palm Jumeirah",
+        "Remraam",
+        "Serena",
+        "Silicon Oasis",
+        "Sports City",
+        "Springs",
+        "The Lakes",
+        "The Meadows",
+        "The Villa",
+        "Town Square",
+        "Umm Suqeim",
+        "Wasl Gate",
+        "World Islands"
+      ];
+      
+      const communitiesResult = predefinedCommunities.map(name => ({ value: name }));
 
       // Ensure all results are arrays before processing
       const safeKindsResult = Array.isArray(kindsResult) ? kindsResult : [];

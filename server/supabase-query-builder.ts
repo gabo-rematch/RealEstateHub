@@ -210,7 +210,6 @@ export async function getFilterOptionsWithSupabase() {
   const transactionTypes = new Set<string>();
   const propertyTypes = new Set<string>();
   const bedrooms = new Set<string>();
-  const communities = new Set<string>();
 
   data?.forEach((item: any) => {
     const record = item.data;
@@ -234,22 +233,87 @@ export async function getFilterOptionsWithSupabase() {
         bedrooms.add(record.bedrooms.toString());
       }
     }
-    
-    // Handle both scalar and array communities
-    if (record.communities) {
-      if (Array.isArray(record.communities)) {
-        record.communities.forEach((community: string) => communities.add(community));
-      } else {
-        communities.add(record.communities);
-      }
-    }
   });
+
+  // Use predefined UAE communities list instead of extracting from database
+  const predefinedCommunities = [
+    "Al Barsha",
+    "Al Furjan",
+    "Al Garhoud",
+    "Al Jaddaf",
+    "Al Karama",
+    "Al Khail Gate",
+    "Al Mizhar",
+    "Al Qusais",
+    "Al Reef",
+    "Al Satwa",
+    "Al Sufouh",
+    "Al Wasl",
+    "Arabian Ranches",
+    "Barsha Heights",
+    "Business Bay",
+    "City Walk",
+    "Culture Village",
+    "DAMAC Hills",
+    "DAMAC Hills 2",
+    "DIFC",
+    "Discovery Gardens",
+    "Downtown Dubai",
+    "Dubai Creek Harbour",
+    "Dubai Festival City",
+    "Dubai Hills Estate",
+    "Dubai Investment Park",
+    "Dubai Land",
+    "Dubai Marina",
+    "Dubai South",
+    "Dubai Sports City",
+    "Dubai Studio City",
+    "Dubai World Central",
+    "Dubailand",
+    "Emirates Hills",
+    "Emirates Living",
+    "Falcon City",
+    "Green Community",
+    "Greens",
+    "International City",
+    "Jumeirah",
+    "Jumeirah Beach Residence",
+    "Jumeirah Golf Estates",
+    "Jumeirah Heights",
+    "Jumeirah Islands",
+    "Jumeirah Lake Towers",
+    "Jumeirah Park",
+    "Jumeirah Village Circle",
+    "Jumeirah Village Triangle",
+    "Liwan",
+    "Meydan City",
+    "Mirdif",
+    "Motor City",
+    "Mudon",
+    "Nad Al Sheba",
+    "Nakhl",
+    "Old Town",
+    "Palm Jebel Ali",
+    "Palm Jumeirah",
+    "Remraam",
+    "Serena",
+    "Silicon Oasis",
+    "Sports City",
+    "Springs",
+    "The Lakes",
+    "The Meadows",
+    "The Villa",
+    "Town Square",
+    "Umm Suqeim",
+    "Wasl Gate",
+    "World Islands"
+  ];
 
   return {
     kinds: Array.from(kinds).sort(),
     transactionTypes: Array.from(transactionTypes).sort(),
     propertyTypes: Array.from(propertyTypes).filter(type => type).sort(),
     bedrooms: Array.from(bedrooms).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b).map(String),
-    communities: Array.from(communities).filter(community => community).sort()
+    communities: predefinedCommunities.sort()
   };
 }
