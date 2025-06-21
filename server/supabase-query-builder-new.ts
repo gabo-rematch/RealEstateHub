@@ -391,17 +391,18 @@ export async function getFilterOptionsWithSupabase() {
   
   console.log('Supabase RPC failed, using table queries: RPC not available, using table queries');
   
-  // Extract communities using efficient approach
-  const communitiesQuery = supabase
+  // Extract all filter options from a larger sample of the dataset
+  const optionsQuery = supabase
     .from('inventory_unit_preference')
     .select('data')
-    .not('data->>communities', 'is', null)
+    .not('data->>kind', 'is', null)
+    .not('data->>transaction_type', 'is', null)
     .limit(10000);
 
-  const { data: communitiesData, error: communitiesError } = await communitiesQuery;
+  const { data: optionsData, error: optionsError } = await optionsQuery;
 
-  if (communitiesError) {
-    console.error('Error fetching communities:', communitiesError);
+  if (optionsError) {
+    console.error('Error fetching filter options:', optionsError);
     return {
       kinds: ['listing', 'client_request'],
       transaction_types: ['sale', 'rent'],
@@ -411,32 +412,114 @@ export async function getFilterOptionsWithSupabase() {
     };
   }
 
-  // Extract unique communities from the data
+  // Extract unique values from the actual dataset
+  const kindsSet = new Set<string>();
+  const transactionTypesSet = new Set<string>();
+  const propertyTypesSet = new Set<string>();
+  const bedroomsSet = new Set<string>();
   const communitiesSet = new Set<string>();
 
-  communitiesData?.forEach((record: any) => {
-    if (record.data?.communities) {
-      const communities = record.data.communities;
-      if (Array.isArray(communities)) {
-        communities.forEach((community: string) => {
-          if (community && community.trim()) {
+  let recordsProcessed = 0;
+  optionsData?.forEach((record: any) => {
+    const data = record.data;
+    recordsProcessed++;
+    
+    // Extract kinds (unit_kind) 
+    if (data?.kind && typeof data.kind === 'string') {
+      kindsSet.add(data.kind.trim());
+    }
+    
+    // Extract transaction types
+    if (data?.transaction_type && typeof data.transaction_type === 'string') {
+      transactionTypesSet.add(data.transaction_type.trim());
+    }
+    
+    // Extract property types (handle both array and string formats)
+    if (data?.property_type) {
+      if (Array.isArray(data.property_type)) {
+        data.property_type.forEach((type: string) => {
+          if (type && typeof type === 'string') {
+            propertyTypesSet.add(type.trim());
+          }
+        });
+      } else if (typeof data.property_type === 'string') {
+        propertyTypesSet.add(data.property_type.trim());
+      }
+    }
+    
+    // Extract bedrooms (handle both array and string/number formats)
+    if (data?.bedrooms !== undefined && data.bedrooms !== null) {
+      if (Array.isArray(data.bedrooms)) {
+        data.bedrooms.forEach((bedroom: any) => {
+          if (bedroom !== undefined && bedroom !== null) {
+            const bedroomStr = bedroom.toString().trim();
+            if (bedroomStr) bedroomsSet.add(bedroomStr);
+          }
+        });
+      } else {
+        const bedroomStr = data.bedrooms.toString().trim();
+        if (bedroomStr) bedroomsSet.add(bedroomStr);
+      }
+    }
+    
+    // Extract communities (handle both array and string formats)
+    if (data?.communities) {
+      if (Array.isArray(data.communities)) {
+        data.communities.forEach((community: string) => {
+          if (community && typeof community === 'string' && community.trim()) {
             communitiesSet.add(community.trim());
           }
         });
-      } else if (typeof communities === 'string' && communities.trim()) {
-        communitiesSet.add(communities.trim());
+      } else if (typeof data.communities === 'string' && data.communities.trim()) {
+        communitiesSet.add(data.communities.trim());
       }
     }
   });
 
-  const communitiesList = Array.from(communitiesSet).sort();
-  console.log(`Extracted ${communitiesList.length} communities from database`);
+  console.log(`Processed ${recordsProcessed} records, found: ${kindsSet.size} kinds, ${transactionTypesSet.size} transaction types, ${propertyTypesSet.size} property types`);
 
-  return {
-    kinds: ['listing', 'client_request'],
-    transaction_types: ['sale', 'rent'],
-    property_types: ['apartment', 'villa', 'townhouse', 'penthouse', 'office', 'retail', 'warehouse'],
-    bedrooms: ['studio', '1', '2', '3', '4', '5', '6+'],
+  // Convert sets to sorted arrays
+  const kindsList = Array.from(kindsSet).sort();
+  const transactionTypesList = Array.from(transactionTypesSet).sort();
+  const propertyTypesList = Array.from(propertyTypesSet).sort();
+  const bedroomsList = Array.from(bedroomsSet)
+    .map(b => {
+      // Handle special cases
+      if (b.toLowerCase() === 'studio' || b === '0') return 'studio';
+      return b;
+    })
+    .filter((value, index, array) => array.indexOf(value) === index) // Remove duplicates
+    .sort((a, b) => {
+      // Custom sort: studio first, then numbers
+      if (a === 'studio') return -1;
+      if (b === 'studio') return 1;
+      const aNum = parseInt(a);
+      const bNum = parseInt(b);
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        return aNum - bNum;
+      }
+      return a.localeCompare(b);
+    });
+  const communitiesList = Array.from(communitiesSet).sort();
+
+  console.log(`Extracted ${kindsList.length} kinds, ${transactionTypesList.length} transaction types, ${propertyTypesList.length} property types, ${bedroomsList.length} bedroom options, ${communitiesList.length} communities from database`);
+
+  // Fallback to ensure we always have basic options even if extraction fails
+  const finalResult = {
+    kinds: kindsList.length > 0 ? kindsList : ['listing', 'client_request'],
+    transaction_types: transactionTypesList.length > 0 ? transactionTypesList : ['sale', 'rent'],
+    property_types: propertyTypesList.length > 0 ? propertyTypesList : ['apartment', 'villa', 'townhouse'],
+    bedrooms: bedroomsList.length > 0 ? bedroomsList : ['studio', '1', '2', '3', '4', '5'],
     communities: communitiesList
   };
+
+  console.log('Final filter options:', {
+    kinds: finalResult.kinds,
+    transaction_types: finalResult.transaction_types,
+    property_types: finalResult.property_types.slice(0, 5), // Show first 5
+    bedrooms: finalResult.bedrooms,
+    communities_count: finalResult.communities.length
+  });
+
+  return finalResult;
 }
