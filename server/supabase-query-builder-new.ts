@@ -111,7 +111,7 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
   const batchSize = 1000; // Supabase limit per query
   let hasMoreData = true;
 
-  while (hasMoreData && allData.length < 50000) {
+  while (hasMoreData && allData.length < 100000) {
     // Start with base query for each batch
     let query = supabase
       .from('inventory_unit_preference')
@@ -219,45 +219,31 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
       const locationText = data.location_raw.toString();
       communities = [locationText];
     } else if (data.message_body_raw) {
-      // Extract community from message text using common patterns
+      // Extract community from message text - JLT example shows it's in the message
       const messageText = data.message_body_raw.toString();
-      const communityPatterns = [
-        /JLT|Jumeirah Lake Towers/i,
-        /JVC|Jumeirah Village Circle/i,
-        /Dubai Hills Estate/i,
-        /Downtown Dubai/i,
-        /Business Bay/i,
-        /Dubai Marina/i,
-        /Palm Jumeirah/i,
-        /DIFC/i,
-        /Al Barsha/i,
-        /Discovery Gardens/i,
-        /International City/i,
-        /Sports City/i,
-        /Motor City/i,
-        /Arabian Ranches/i,
-        /The Greens/i,
-        /Emirates Hills/i,
-        /Meydan/i,
-        /City Walk/i,
-        /Al Furjan/i,
-        /Mudon/i,
-        /Town Square/i,
-        /DAMAC Hills/i
-      ];
       
-      for (const pattern of communityPatterns) {
-        const match = messageText.match(pattern);
-        if (match) {
-          let communityName = match[0];
-          // Normalize community names
-          if (communityName.toLowerCase().includes('jlt')) {
-            communityName = 'Jumeirah Lake Towers';
-          } else if (communityName.toLowerCase().includes('jvc')) {
-            communityName = 'Jumeirah Village Circle';
-          }
-          communities = [communityName];
-          break;
+      // Enhanced pattern matching for communities
+      if (/JLT|Jumeirah Lake Towers/i.test(messageText)) {
+        communities = ['Jumeirah Lake Towers'];
+      } else if (/JVC|Jumeirah Village Circle/i.test(messageText)) {
+        communities = ['Jumeirah Village Circle'];
+      } else if (/Dubai Hills Estate/i.test(messageText)) {
+        communities = ['Dubai Hills Estate'];
+      } else if (/Downtown Dubai/i.test(messageText)) {
+        communities = ['Downtown Dubai'];
+      } else if (/Business Bay/i.test(messageText)) {
+        communities = ['Business Bay'];
+      } else if (/Dubai Marina/i.test(messageText)) {
+        communities = ['Dubai Marina'];
+      } else if (/Palm Jumeirah/i.test(messageText)) {
+        communities = ['Palm Jumeirah'];
+      } else if (/DIFC/i.test(messageText)) {
+        communities = ['DIFC'];
+      } else {
+        // Extract any community-like text patterns
+        const communityWords = messageText.match(/(?:^|\s)([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+(?:Estate|Hills|Village|City|Bay|Marina|Gardens|Heights|Park|Lakes|Meadows|Springs|Towers)))/gi);
+        if (communityWords && communityWords.length > 0) {
+          communities = [communityWords[0].trim()];
         }
       }
     }
