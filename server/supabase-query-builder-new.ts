@@ -476,7 +476,7 @@ export async function getFilterOptionsWithSupabase() {
     }
   });
 
-  console.log(`Processed ${recordsProcessed} records, found: ${kindsSet.size} kinds, ${transactionTypesSet.size} transaction types, ${propertyTypesSet.size} property types`);
+  console.log(`Processed ${recordsProcessed} records, found: ${kindsSet.size} kinds, ${transactionTypesSet.size} transaction types, ${propertyTypesSet.size} property types, ${bedroomsSet.size} bedroom options`);
 
   // Convert sets to sorted arrays
   const kindsList = Array.from(kindsSet).sort();
@@ -488,7 +488,13 @@ export async function getFilterOptionsWithSupabase() {
       if (b.toLowerCase() === 'studio' || b === '0') return 'studio';
       return b;
     })
-    .filter((value, index, array) => array.indexOf(value) === index) // Remove duplicates
+    .filter((value, index, array) => {
+      // Remove duplicates and filter out unrealistic bedroom counts
+      if (array.indexOf(value) !== index) return false;
+      if (value === 'studio') return true;
+      const num = parseInt(value);
+      return !isNaN(num) && num > 0 && num <= 10; // Only keep reasonable bedroom counts
+    })
     .sort((a, b) => {
       // Custom sort: studio first, then numbers
       if (a === 'studio') return -1;
