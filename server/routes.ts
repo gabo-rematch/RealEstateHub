@@ -362,6 +362,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get unique filter values for dropdowns
   app.get("/api/filter-options", async (req, res) => {
     try {
+      // Always use predefined communities list regardless of data source
+      const predefinedCommunities = [
+        "Al Barsha", "Al Furjan", "Al Garhoud", "Al Jaddaf", "Al Karama", "Al Khail Gate",
+        "Al Mizhar", "Al Qusais", "Al Reef", "Al Satwa", "Al Sufouh", "Al Wasl",
+        "Arabian Ranches", "Barsha Heights", "Business Bay", "City Walk", "Culture Village",
+        "DAMAC Hills", "DAMAC Hills 2", "DIFC", "Discovery Gardens", "Downtown Dubai",
+        "Dubai Creek Harbour", "Dubai Festival City", "Dubai Hills Estate", "Dubai Investment Park",
+        "Dubai Land", "Dubai Marina", "Dubai South", "Dubai Sports City", "Dubai Studio City",
+        "Dubai World Central", "Dubailand", "Emirates Hills", "Emirates Living", "Falcon City",
+        "Green Community", "Greens", "International City", "Jumeirah", "Jumeirah Beach Residence",
+        "Jumeirah Golf Estates", "Jumeirah Heights", "Jumeirah Islands", "Jumeirah Lake Towers",
+        "Jumeirah Park", "Jumeirah Village Circle", "Jumeirah Village Triangle", "Liwan",
+        "Meydan City", "Mirdif", "Motor City", "Mudon", "Nad Al Sheba", "Nakhl", "Old Town",
+        "Palm Jebel Ali", "Palm Jumeirah", "Remraam", "Serena", "Silicon Oasis", "Sports City",
+        "Springs", "The Lakes", "The Meadows", "The Villa", "Town Square", "Umm Suqeim",
+        "Wasl Gate", "World Islands"
+      ].sort();
+
       // Always use Supabase query builder when credentials are available
       const useSupabase = process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY;
       
@@ -372,7 +390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           transactionTypes: filterOptions.transactionTypes,
           propertyTypes: filterOptions.propertyTypes,
           bedrooms: filterOptions.bedrooms,
-          communities: filterOptions.communities
+          communities: predefinedCommunities
         });
         return;
       }
@@ -453,80 +471,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ORDER BY value
       `);
 
-      // Use predefined UAE communities list
-      const predefinedCommunities = [
-        "Al Barsha",
-        "Al Furjan", 
-        "Al Garhoud",
-        "Al Jaddaf",
-        "Al Karama",
-        "Al Khail Gate",
-        "Al Mizhar",
-        "Al Qusais",
-        "Al Reef",
-        "Al Satwa",
-        "Al Sufouh",
-        "Al Wasl",
-        "Arabian Ranches",
-        "Barsha Heights",
-        "Business Bay",
-        "City Walk",
-        "Culture Village",
-        "DAMAC Hills",
-        "DAMAC Hills 2",
-        "DIFC",
-        "Discovery Gardens",
-        "Downtown Dubai",
-        "Dubai Creek Harbour",
-        "Dubai Festival City",
-        "Dubai Hills Estate",
-        "Dubai Investment Park",
-        "Dubai Land",
-        "Dubai Marina",
-        "Dubai South",
-        "Dubai Sports City",
-        "Dubai Studio City",
-        "Dubai World Central",
-        "Dubailand",
-        "Emirates Hills",
-        "Emirates Living",
-        "Falcon City",
-        "Green Community",
-        "Greens",
-        "International City",
-        "Jumeirah",
-        "Jumeirah Beach Residence",
-        "Jumeirah Golf Estates",
-        "Jumeirah Heights",
-        "Jumeirah Islands",
-        "Jumeirah Lake Towers",
-        "Jumeirah Park",
-        "Jumeirah Village Circle",
-        "Jumeirah Village Triangle",
-        "Liwan",
-        "Meydan City",
-        "Mirdif",
-        "Motor City",
-        "Mudon",
-        "Nad Al Sheba",
-        "Nakhl",
-        "Old Town",
-        "Palm Jebel Ali",
-        "Palm Jumeirah",
-        "Remraam",
-        "Serena",
-        "Silicon Oasis",
-        "Sports City",
-        "Springs",
-        "The Lakes",
-        "The Meadows",
-        "The Villa",
-        "Town Square",
-        "Umm Suqeim",
-        "Wasl Gate",
-        "World Islands"
-      ];
-      
+      // communitiesResult will use the predefined list from above
       const communitiesResult = predefinedCommunities.map(name => ({ value: name }));
 
       // Ensure all results are arrays before processing
@@ -541,7 +486,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transactionTypes: safeTransactionTypesResult.map((row: any) => row.value).filter(Boolean),
         propertyTypes: safePropertyTypesResult.map((row: any) => row.value).filter(Boolean),
         bedrooms: safeBedroomsResult.map((row: any) => parseInt(row.value)).filter((val: any) => !isNaN(val) && val >= 0 && val <= 20).sort((a: any, b: any) => a - b),
-        communities: safeCommunitiesResult.map((row: any) => row.value).filter(Boolean)
+        communities: predefinedCommunities
       };
 
       res.json(filterOptions);
