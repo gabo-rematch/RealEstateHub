@@ -9,11 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchFilters, SupabaseProperty } from "@/types/property";
-import { Building, RotateCcw, Search, RefreshCw } from "lucide-react";
+import { Building, RotateCcw, Search, RefreshCw, X, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useSmartSearch } from "@/hooks/use-smart-search";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 export default function Home() {
   const { toast } = useToast();
@@ -28,6 +29,8 @@ export default function Home() {
   const [sortBy, setSortBy] = useState("updated_at_desc");
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [keywordInput, setKeywordInput] = useState("");
+  const [keywords, setKeywords] = useState<string[]>([]);
 
   // Use the new smart search hook
   const { 
@@ -65,9 +68,52 @@ export default function Home() {
   // Get deduplicated properties
   const deduplicatedProperties = deduplicateProperties(properties);
 
+  // Update filters with keywords
+  useEffect(() => {
+    setFilters(prev => ({
+      ...prev,
+      keyword_search: keywords.join(' ')
+    }));
+  }, [keywords]);
+
   const handleSearch = () => {
     setCurrentPage(0);
     searchProperties(filters, 0);
+  };
+
+  // Add keyword handler
+  const handleAddKeyword = () => {
+    const trimmedKeyword = keywordInput.trim();
+    if (trimmedKeyword && !keywords.includes(trimmedKeyword)) {
+      setKeywords(prev => [...prev, trimmedKeyword]);
+      setKeywordInput("");
+      // Trigger immediate search after adding keyword
+      setTimeout(() => {
+        searchProperties({
+          ...filters,
+          keyword_search: [...keywords, trimmedKeyword].join(' ')
+        }, 0);
+      }, 0);
+    }
+  };
+
+  const handleRemoveKeyword = (keyword: string) => {
+    setKeywords(prev => prev.filter(k => k !== keyword));
+    // Trigger immediate search after removing keyword
+    setTimeout(() => {
+      const newKeywords = keywords.filter(k => k !== keyword);
+      searchProperties({
+        ...filters,
+        keyword_search: newKeywords.join(' ')
+      }, 0);
+    }, 0);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddKeyword();
+    }
   };
 
   // Mobile scroll behavior - hide/show header on scroll
@@ -108,6 +154,8 @@ export default function Home() {
     setFilters({ unit_kind: "", transaction_type: "" });
     setSelectedPropertyIds([]);
     setCurrentPage(0);
+    setKeywords([]);
+    setKeywordInput("");
     clearResults();
     sessionStorage.removeItem('inquiryFormData');
     toast({
@@ -291,8 +339,6 @@ export default function Home() {
               className="mb-6"
             />
 
-
-
             {/* Main Content */}
             {searchState.isLoading && deduplicatedProperties.length === 0 ? (
               // Loading state with skeleton
@@ -325,25 +371,38 @@ export default function Home() {
                       <Search className="h-5 w-5 text-gray-400" />
                       <Input
                         type="text"
-                        placeholder="Search property descriptions, keywords, details..."
-                        value={filters.keyword_search || ""}
-                        onChange={(e) => setFilters(prev => ({ ...prev, keyword_search: e.target.value }))}
+                        placeholder="Add search keywords (press Enter)..."
+                        value={keywordInput}
+                        onChange={(e) => setKeywordInput(e.target.value)}
+                        onKeyPress={handleKeyPress}
                         className="flex-1"
                       />
-                      {filters.keyword_search && (
+                      {keywordInput && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setFilters(prev => ({ ...prev, keyword_search: "" }))}
+                          onClick={handleAddKeyword}
                         >
-                          Clear
+                          <Plus className="h-4 w-4" />
                         </Button>
                       )}
                     </div>
-                    {filters.keyword_search && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        Searching in property descriptions and details
-                      </p>
+                    {keywords.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {keywords.map((keyword, index) => (
+                          <Badge 
+                            key={index}
+                            variant="secondary"
+                            className="cursor-pointer hover:bg-gray-300 transition-colors"
+                          >
+                            {keyword}
+                            <X 
+                              className="h-3 w-3 ml-1" 
+                              onClick={() => handleRemoveKeyword(keyword)}
+                            />
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                   </div>
                 </div>

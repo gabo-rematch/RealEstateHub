@@ -38,14 +38,34 @@ const requiredVars = {
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
     validator: (val) => val && val.length > 100
   },
-  'VITE_WEBHOOK_URL': {
-    description: 'Webhook endpoint for inquiry submissions (required)',
-    example: 'https://your-webhook-endpoint.com/inquiries',
-    validator: (val) => val && val.startsWith('https://')
+  'REACT_APP_INVENTORY_UNIT_URL': {
+    description: 'API endpoint for creating inventory units',
+    example: 'https://api.example.com/inventory-unit',
+    validator: (val) => val && val.startsWith('http')
+  },
+  'REACT_APP_INVENTORY_PREFERENCE_URL': {
+    description: 'API endpoint for creating inventory preferences',
+    example: 'https://api.example.com/inventory-preference',
+    validator: (val) => val && val.startsWith('http')
+  },
+  'REACT_APP_MATCH_URL': {
+    description: 'API endpoint for creating property matches',
+    example: 'https://api.example.com/match',
+    validator: (val) => val && val.startsWith('http')
+  },
+  'REACT_APP_API_KEY': {
+    description: 'API key for authenticating with the endpoints',
+    example: 'your-api-key-here',
+    validator: (val) => val && val.length > 0
   }
 };
 
 const optionalVars = {
+  'VITE_WEBHOOK_URL': {
+    description: 'Legacy webhook endpoint (deprecated)',
+    example: 'https://your-webhook-endpoint.com/inquiries',
+    validator: (val) => !val || val.startsWith('http')
+  },
   'PORT': {
     description: 'Server port',
     example: '5000',

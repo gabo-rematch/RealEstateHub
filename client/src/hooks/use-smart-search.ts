@@ -185,6 +185,9 @@ export function useSmartSearch(options: SmartSearchOptions = {}) {
       const eventSource = new EventSource(`/api/properties-with-progress?${queryParams.toString()}`);
       eventSourceRef.current = eventSource;
 
+      // Accumulate properties from batch events
+      let accumulatedProperties: SupabaseProperty[] = [];
+
       eventSource.onmessage = (event) => {
         try {
           const data: PropertiesWithProgressResponse = JSON.parse(event.data);
@@ -205,6 +208,34 @@ export function useSmartSearch(options: SmartSearchOptions = {}) {
               
               if (options.onProgressUpdate) {
                 options.onProgressUpdate(progress);
+              }
+              break;
+
+            case 'batch':
+              if (data.properties) {
+                // Accumulate properties from batches
+                accumulatedProperties = [...accumulatedProperties, ...data.properties];
+                
+                // Deduplicate based on pk
+                const seen = new Set<number>();
+                const deduplicatedProperties = accumulatedProperties.filter(property => {
+                  if (seen.has(property.pk)) {
+                    return false;
+                  }
+                  seen.add(property.pk);
+                  return true;
+                });
+                
+                // Update displayed properties immediately
+                setProperties(deduplicatedProperties);
+                
+                // Update search state to show partial results
+                setSearchState(prevState => ({
+                  ...prevState,
+                  isLoading: true, // Keep loading state
+                  previousResults: deduplicatedProperties,
+                  progress: prevState.progress
+                }));
               }
               break;
 

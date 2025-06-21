@@ -101,7 +101,7 @@ export interface SearchState {
 }
 
 export interface PropertiesWithProgressResponse {
-  type: 'progress' | 'complete' | 'error';
+  type: 'progress' | 'complete' | 'error' | 'batch';
   properties?: SupabaseProperty[];
   pagination?: PaginationInfo;
   all_results?: SupabaseProperty[];
