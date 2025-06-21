@@ -58,7 +58,7 @@ export default function Home() {
       if (filters.keyword_search) queryParams.append('keyword_search', filters.keyword_search);
       
       // Request all results without pagination for accurate filtering
-      queryParams.append('pageSize', '50000');
+      queryParams.append('pageSize', '100000');
 
       const response = await fetch(`/api/properties?${queryParams.toString()}`);
       if (!response.ok) {

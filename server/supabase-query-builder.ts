@@ -38,7 +38,7 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     throw new Error('Supabase client not configured');
   }
 
-  // Start with base query including the join to get agent details - with high row limit
+  // Start with base query including the join to get agent details
   let query = supabase
     .from('inventory_unit_preference')
     .select(`
@@ -47,7 +47,7 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
       data,
       updated_at,
       inventory_unit:inventory_unit_pk(agent_details)
-    `, { count: 'exact' });
+    `);
 
   // Apply basic sanity checks - only include records with essential fields
   query = query.not('data->>kind', 'is', null)
@@ -122,8 +122,10 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     query = query.ilike('data->>message_body_raw', `%${searchTerm}%`);
   }
 
-  // Apply explicit high limit to override Supabase defaults
-  query = query.limit(100000);
+  // Apply high pagination limits to capture full dataset
+  const pageSize = filters.pageSize || 100000;
+  const page = filters.page || 0;
+  query = query.range(page * pageSize, (page + 1) * pageSize - 1);
 
   const { data, error } = await query;
 

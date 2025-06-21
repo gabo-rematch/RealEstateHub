@@ -27,7 +27,7 @@ async function querySupabaseTable(query: string, params: any[] = []) {
   if (query.includes('inventory_unit_preference') && query.includes('SELECT')) {
     let supabaseQuery = supabase.from('inventory_unit_preference').select('pk, id, data, updated_at, inventory_unit_pk');
     
-    // Apply ORDER BY updated_at DESC (default for most queries)
+    // Apply ORDER BY updated_at DESC and remove default limits
     supabaseQuery = supabaseQuery.order('updated_at', { ascending: false });
     
     // Apply LIMIT
