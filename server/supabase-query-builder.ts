@@ -122,10 +122,65 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     query = query.ilike('data->>message_body_raw', `%${searchTerm}%`);
   }
 
-  // Apply high pagination limits to capture full dataset
-  const pageSize = filters.pageSize || 100000;
-  const page = filters.page || 0;
-  query = query.range(page * pageSize, (page + 1) * pageSize - 1);
+  // Execute single query with high limit to get comprehensive dataset
+  const { data, error } = await query.limit(100000);
+
+  if (error) {
+    console.error('PostgREST query error:', error);
+    throw new Error(`Query failed: ${error.message}`);
+  }
+
+  console.log(`Query returned ${data?.length || 0} properties`);
+
+  if (!data || data.length === 0) {
+    return [];
+  }
+
+  // Transform the data to match expected format
+  const transformedData = data.map((record: any) => {
+    if (!record.data) return null;
+
+    const data = record.data;
+    const agentDetails = record.inventory_unit?.agent_details || {};
+
+    return {
+      pk: record.pk,
+      id: record.id,
+      kind: data.kind,
+      transaction_type: data.transaction_type,
+      bedrooms: Array.isArray(data.bedrooms) ? data.bedrooms : (data.bedrooms ? [data.bedrooms] : []),
+      property_type: Array.isArray(data.property_type) ? data.property_type : (data.property_type ? [data.property_type] : []),
+      communities: Array.isArray(data.communities) ? data.communities : (data.communities ? [data.communities] : []),
+      price_aed: data.price_aed || null,
+      budget_max_aed: data.budget_max_aed || null,
+      budget_min_aed: data.budget_min_aed || null,
+      area_sqft: data.area_sqft || null,
+      message_body_raw: data.message_body_raw || null,
+      furnishing: data.furnishing || null,
+      is_urgent: data.is_urgent || null,
+      is_agent_covered: data.is_agent_covered || null,
+      bathrooms: Array.isArray(data.bathrooms) ? data.bathrooms : (data.bathrooms ? [data.bathrooms] : []),
+      location_raw: data.location_raw || null,
+      other_details: data.other_details || null,
+      has_maid_bedroom: data.has_maid_bedroom || null,
+      is_direct: data.is_direct || null,
+      mortgage_or_cash: data.mortgage_or_cash || null,
+      is_distressed_deal: data.is_distressed_deal || null,
+      is_off_plan: data.is_off_plan || null,
+      is_mortgage_approved: data.is_mortgage_approved || null,
+      is_community_agnostic: data.is_community_agnostic || null,
+      developers: Array.isArray(data.developers) ? data.developers : (data.developers ? [data.developers] : []),
+      whatsapp_participant: data.whatsapp_participant || null,
+      agent_phone: agentDetails.phone || null,
+      groupJID: data.groupJID || null,
+      evolution_instance_id: data.evolution_instance_id || null,
+      updated_at: record.updated_at
+    };
+  }).filter(Boolean);
+
+  // Apply post-processing filtering for complex numeric conditions
+  return applyPostProcessingFilters(transformedData, filters);
+}
 
   const { data, error } = await query;
 
@@ -223,34 +278,7 @@ export async function getFilterOptionsWithSupabase() {
     throw new Error(`Supabase query error: ${error.message}`);
   }
 
-  const kinds = new Set<string>();
-  const transactionTypes = new Set<string>();
-  const propertyTypes = new Set<string>();
-  const bedrooms = new Set<string>();
 
-  data?.forEach((item: any) => {
-    const record = item.data;
-    if (record.kind) kinds.add(record.kind);
-    if (record.transaction_type) transactionTypes.add(record.transaction_type);
-    
-    // Handle both scalar and array property types
-    if (record.property_type) {
-      if (Array.isArray(record.property_type)) {
-        record.property_type.forEach((type: string) => propertyTypes.add(type));
-      } else {
-        propertyTypes.add(record.property_type);
-      }
-    }
-    
-    // Handle both scalar and array bedrooms
-    if (record.bedrooms) {
-      if (Array.isArray(record.bedrooms)) {
-        record.bedrooms.forEach((bedroom: number) => bedrooms.add(bedroom.toString()));
-      } else {
-        bedrooms.add(record.bedrooms.toString());
-      }
-    }
-  });
 
   // Use predefined UAE communities list instead of extracting from database
   const predefinedCommunities = [
@@ -326,11 +354,3 @@ export async function getFilterOptionsWithSupabase() {
     "World Islands"
   ];
 
-  return {
-    kinds: Array.from(kinds).sort(),
-    transactionTypes: Array.from(transactionTypes).sort(),
-    propertyTypes: Array.from(propertyTypes).filter(type => type).sort(),
-    bedrooms: Array.from(bedrooms).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b).map(String),
-    communities: predefinedCommunities.sort()
-  };
-}
