@@ -230,9 +230,6 @@ function FilterChips({ filters, onRemoveFilter, onClearAll }: FilterChipsProps) 
   if (filters.area_sqft_max) {
     activeFilters.push({ key: 'area_sqft_max', label: `Max Area: ${filters.area_sqft_max} sqft`, value: 'area_sqft_max' });
   }
-  if (filters.keyword_search) {
-    activeFilters.push({ key: 'keyword_search', label: `"${filters.keyword_search}"`, value: 'keyword_search' });
-  }
 
   if (activeFilters.length === 0) return null;
 

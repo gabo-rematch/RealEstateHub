@@ -47,6 +47,12 @@ export function InquiryModal({ isOpen, onClose, selectedPropertyIds, searchFilte
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isMobile = useIsMobile();
 
+  // Extract keywords from searchFilters.keyword_search
+  const keywords = searchFilters.keyword_search ? searchFilters.keyword_search.split(' ').filter(k => k.trim()) : [];
+  
+  // Prepare initial notes with keywords
+  const initialNotes = keywords.length > 0 ? `Keywords: ${keywords.join(', ')}` : '';
+
   const form = useForm({
     resolver: zodResolver(inquirySchema),
     defaultValues: {
@@ -59,7 +65,7 @@ export function InquiryModal({ isOpen, onClose, selectedPropertyIds, searchFilte
       listingPrice: searchFilters.price_aed || undefined,
       bedrooms: searchFilters.bedrooms || [],
       communities: searchFilters.communities || [],
-      notes: "",
+      notes: initialNotes,
       portalLink: "",
       isOffPlan: searchFilters.is_off_plan || false,
       isDistressed: searchFilters.is_distressed_deal || false,
@@ -73,17 +79,30 @@ export function InquiryModal({ isOpen, onClose, selectedPropertyIds, searchFilte
       if (savedData) {
         try {
           const formData = JSON.parse(savedData);
+          // Append keywords to saved notes
+          if (keywords.length > 0) {
+            const keywordText = `Keywords: ${keywords.join(', ')}`;
+            formData.notes = formData.notes ? `${formData.notes}\n${keywordText}` : keywordText;
+          }
           form.reset(formData);
         } catch (error) {
           console.error('Error loading saved form data:', error);
         }
+      } else {
+        // If no saved data, just set keywords in notes
+        form.setValue('notes', initialNotes);
       }
     }
-  }, [isOpen, form]);
+  }, [isOpen, form, keywords, initialNotes]);
 
   // Save form data to sessionStorage
   const saveFormData = (data: InquiryFormData) => {
-    sessionStorage.setItem('inquiryFormData', JSON.stringify(data));
+    // Save without the keywords part for persistence
+    const dataToSave = {
+      ...data,
+      notes: data.notes?.replace(/Keywords: [^\n]+\n?/, '').trim()
+    };
+    sessionStorage.setItem('inquiryFormData', JSON.stringify(dataToSave));
   };
 
   const onSubmit = async (data: InquiryFormData) => {
@@ -93,39 +112,113 @@ export function InquiryModal({ isOpen, onClose, selectedPropertyIds, searchFilte
       // Save form data for next inquiry
       saveFormData(data);
 
-      // Prepare payload
-      const payload: InquiryPayload = {
-        selectedUnitIds: selectedPropertyIds,
-        formData: {
-          ...data,
-          searchCriteria: searchFilters,
-        },
-        timestamp: new Date().toISOString(),
+      // Check for required environment variables
+      if (!env.INVENTORY_UNIT_URL || !env.INVENTORY_PREFERENCE_URL || !env.MATCH_URL) {
+        throw new Error('API URLs not configured. Please check your environment variables.');
+      }
+
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(env.API_KEY ? { 'X-API-Key': env.API_KEY } : {})
       };
 
-      // Send to webhook
-      const webhookUrl = env.WEBHOOK_URL;
-      
-      if (!webhookUrl) {
-        throw new Error('Webhook URL not configured. Please set VITE_WEBHOOK_URL in your environment variables.');
-      }
+      // Step 1: Create inventory unit
+      const inventoryUnitPayload = {
+        agentWhatsApp: data.whatsappNumber,
+        unitKind: data.lookingFor,
+        transactionType: data.transactionType,
+        propertyType: data.propertyType,
+        // Include only the appropriate price fields based on lookingFor
+        ...(data.lookingFor === 'listing' 
+          ? { 
+              budgetMinAed: data.priceMin,
+              budgetMaxAed: data.priceMax 
+            }
+          : {
+              priceAed: data.listingPrice
+            }
+        ),
+        beds: data.bedrooms,
+        communities: data.communities,
+        distressed: data.isDistressed,
+        offPlan: data.isOffPlan,
+        notes: data.notes,
+        portalLink: data.portalLink
+      };
 
-      const response = await fetch(webhookUrl, {
+      const inventoryResponse = await fetch(env.INVENTORY_UNIT_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+        headers,
+        body: JSON.stringify(inventoryUnitPayload),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!inventoryResponse.ok) {
+        const errorText = await inventoryResponse.text();
+        throw new Error(`Failed to create inventory unit: ${errorText}`);
       }
 
-      toast({
-        title: "Inquiry sent successfully!",
-        description: `Your inquiry for ${selectedPropertyIds.length} properties has been sent.`,
+      const { inventoryUnitId } = await inventoryResponse.json();
+
+      // Step 2: Create inventory preference
+      const preferencePayload = {
+        inventoryUnitId,
+        transactionType: data.transactionType,
+        propertyType: data.propertyType,
+        beds: data.bedrooms,
+        communities: data.communities,
+        // Include price fields based on unit kind
+        ...(data.lookingFor === 'listing' 
+          ? { 
+              budgetMinAed: data.priceMin,
+              budgetMaxAed: data.priceMax 
+            }
+          : {
+              priceAed: data.listingPrice
+            }
+        ),
+      };
+
+      const preferenceResponse = await fetch(env.INVENTORY_PREFERENCE_URL, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(preferencePayload),
       });
+
+      if (!preferenceResponse.ok) {
+        const errorText = await preferenceResponse.text();
+        throw new Error(`Failed to create inventory preference: ${errorText}`);
+      }
+
+      const { preferenceId } = await preferenceResponse.json();
+
+      // Step 3: Create matches for each selected property
+      const matchPromises = selectedPropertyIds.map(propertyId => 
+        fetch(env.MATCH_URL!, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            preferenceId,
+            propertyId
+          }),
+        })
+      );
+
+      const matchResults = await Promise.allSettled(matchPromises);
+      const failedMatches = matchResults.filter(result => result.status === 'rejected');
+
+      if (failedMatches.length > 0) {
+        console.error('Some matches failed:', failedMatches);
+        toast({
+          title: "Partial Success",
+          description: `Inquiry sent, but ${failedMatches.length} matches failed to process.`,
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Inquiry sent successfully!",
+          description: `Your inquiry for ${selectedPropertyIds.length} properties has been sent.`,
+        });
+      }
 
       onClose();
     } catch (error) {

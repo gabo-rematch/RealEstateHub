@@ -33,6 +33,7 @@ interface FilterParams {
   previous_results?: any[];  // Previous results to filter from
   is_refinement?: boolean;   // Whether this is a refinement of previous search
   progress_callback?: (progress: { current: number; total: number; phase: string }) => void;
+  batch_callback?: (batch: any[]) => void; // Callback for streaming batch results
 }
 
 // Helper function to ensure array format with proper handling of both scalar and array values
@@ -453,6 +454,52 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     }
 
     allData = allData.concat(batchData);
+    
+    // Transform and send batch data if callback is provided
+    if (filters.batch_callback && batchData.length > 0) {
+      const transformedBatch = batchData.map((row: any) => {
+        const data = row.data;
+        return {
+          pk: row.pk,
+          id: row.id,
+          kind: data?.kind,
+          transaction_type: data?.transaction_type,
+          bedrooms: ensureBedroomsArray(data),
+          property_type: ensurePropertyTypesArray(data),
+          communities: ensureCommunitiesArray(data),
+          price_aed: data?.price_aed,
+          budget_max_aed: data?.budget_max_aed,
+          budget_min_aed: data?.budget_min_aed,
+          area_sqft: data?.area_sqft,
+          message_body_raw: data?.message_body_raw,
+          furnishing: data?.furnishing,
+          is_urgent: data?.is_urgent,
+          is_agent_covered: data?.is_agent_covered,
+          bathrooms: ensureArray(data?.bathrooms, true),
+          location_raw: data?.location_raw,
+          other_details: data?.other_details,
+          has_maid_bedroom: data?.has_maid_bedroom,
+          is_direct: data?.is_direct,
+          mortgage_or_cash: data?.mortgage_or_cash,
+          is_distressed_deal: data?.is_distressed_deal,
+          is_off_plan: data?.is_off_plan,
+          is_mortgage_approved: data?.is_mortgage_approved,
+          is_community_agnostic: data?.is_community_agnostic,
+          developers: ensureArray(data?.developers, false),
+          whatsapp_participant: data?.whatsapp_participant,
+          agent_phone: data?.agent_phone,
+          groupJID: data?.groupJID,
+          evolution_instance_id: data?.evolution_instance_id,
+          updated_at: row.updated_at
+        };
+      });
+      
+      // Apply post-processing filters to batch
+      const filteredBatch = applyPostProcessingFilters(transformedBatch, filters);
+      if (filteredBatch.length > 0) {
+        filters.batch_callback(filteredBatch);
+      }
+    }
     
     // Check if we got a full batch - if not, we're done
     if (batchData.length < batchSize) {

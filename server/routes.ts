@@ -57,6 +57,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.write(`data: ${JSON.stringify({ type: 'progress', ...progress })}\n\n`);
       };
 
+      // Batch callback function for streaming results
+      const batch_callback = (batch: any[]) => {
+        // Transform batch results
+        const transformedBatch = batch.map((row: any) => {
+          return {
+            pk: row.pk,
+            id: row.id,
+            kind: row.kind,
+            transaction_type: row.transaction_type,
+            bedrooms: row.bedrooms || [],
+            property_type: row.property_type || [],
+            communities: row.communities || [],
+            price_aed: row.price_aed,
+            budget_max_aed: row.budget_max_aed,
+            budget_min_aed: row.budget_min_aed,
+            area_sqft: row.area_sqft,
+            message_body_raw: row.message_body_raw,
+            furnishing: row.furnishing,
+            is_urgent: row.is_urgent,
+            is_agent_covered: row.is_agent_covered,
+            bathrooms: row.bathrooms || [],
+            location_raw: row.location_raw,
+            other_details: row.other_details,
+            has_maid_bedroom: row.has_maid_bedroom,
+            is_direct: row.is_direct,
+            mortgage_or_cash: row.mortgage_or_cash,
+            is_distressed_deal: row.is_distressed_deal,
+            is_off_plan: row.is_off_plan,
+            is_mortgage_approved: row.is_mortgage_approved,
+            is_community_agnostic: row.is_community_agnostic,
+            developers: row.developers || [],
+            whatsapp_participant: row.whatsapp_participant,
+            agent_phone: row.agent_phone,
+            groupJID: row.groupJID,
+            evolution_instance_id: row.evolution_instance_id,
+            updated_at: row.updated_at
+          };
+        });
+        
+        // Send batch event
+        res.write(`data: ${JSON.stringify({ type: 'batch', properties: transformedBatch })}\n\n`);
+      };
+
       // Use Supabase query builder
       const results = await queryPropertiesWithSupabase({
         unit_kind: unit_kind as string,
@@ -76,7 +119,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pageSize: parseInt(pageSize as string),
         is_refinement: is_refinement === 'true',
         previous_results,
-        progress_callback
+        progress_callback,
+        batch_callback
       });
 
       // Transform results using same logic as existing endpoint

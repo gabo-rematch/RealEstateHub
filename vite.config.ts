@@ -39,6 +39,10 @@ export default defineConfig(({ mode }) => {
     __VITE_SUPABASE_URL__: JSON.stringify(env.VITE_SUPABASE_URL || env.SUPABASE_URL),
     __VITE_SUPABASE_ANON_KEY__: JSON.stringify(env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY),
     __VITE_WEBHOOK_URL__: JSON.stringify(env.VITE_WEBHOOK_URL),
+    __VITE_INVENTORY_UNIT_URL__: JSON.stringify(env.REACT_APP_INVENTORY_UNIT_URL),
+    __VITE_INVENTORY_PREFERENCE_URL__: JSON.stringify(env.REACT_APP_INVENTORY_PREFERENCE_URL),
+    __VITE_MATCH_URL__: JSON.stringify(env.REACT_APP_MATCH_URL),
+    __VITE_API_KEY__: JSON.stringify(env.REACT_APP_API_KEY),
   },
 };
 });
