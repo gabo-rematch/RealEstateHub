@@ -362,32 +362,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get unique filter values for dropdowns
   app.get("/api/filter-options", async (req, res) => {
     try {
-      // Get communities from database using both 'community' and 'communities' fields
+      // Extract communities using the exact SQL query provided by user
       const communitiesResult = await queryDatabase(`
-        SELECT DISTINCT community AS communities
-        FROM (
-          -- Get communities from client_request records (array field)
-          SELECT UNNEST(
-            CASE
-              WHEN t.data->'communities' IS NULL THEN '{}'::text[]
-              WHEN jsonb_typeof(t.data->'communities') = 'array' THEN (
-                SELECT array_agg(elem)
-                FROM jsonb_array_elements_text(t.data->'communities') AS elem
-              )
-              ELSE ARRAY[ t.data->>'communities' ]
-            END
-          ) AS community
-          FROM inventory_unit_preference AS t
-          WHERE t.data->>'kind' = 'client_request'
-          
-          UNION
-          
-          -- Get community from listing records (scalar field)
-          SELECT t.data->>'community' AS community
-          FROM inventory_unit_preference AS t
-          WHERE t.data->>'kind' = 'listing' AND t.data->>'community' IS NOT NULL
-        ) AS combined_communities
-        WHERE community IS NOT NULL AND community != '' AND community != 'null'
+        SELECT DISTINCT x.community AS communities
+        FROM inventory_unit_preference AS t,
+             LATERAL (
+               SELECT UNNEST(
+                 CASE
+                   WHEN t.data->'communities' IS NULL THEN '{}'::text[]
+                   WHEN jsonb_typeof(t.data->'communities') = 'array' THEN (
+                     SELECT array_agg(elem)
+                     FROM jsonb_array_elements_text(t.data->'communities') AS elem
+                   )
+                   ELSE ARRAY[ t.data->>'communities' ]
+                 END
+               ) AS community
+             ) AS x
+        WHERE x.community IS NOT NULL AND x.community != '' AND x.community != 'null'
         ORDER BY communities
       `);
 

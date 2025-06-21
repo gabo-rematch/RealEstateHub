@@ -80,25 +80,8 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     }
   }
 
-  // Handle communities filtering - handle both 'community' (scalar) and 'communities' (array) fields
-  if (filters.communities && filters.communities.length > 0) {
-    const validCommunities = filters.communities.filter(c => c && c !== 'null');
-    if (validCommunities.length > 0) {
-      // Create conditions for both field names and data types
-      const communityConditions: string[] = [];
-      
-      validCommunities.forEach(community => {
-        // For scalar 'community' field (used in listings) - exact match
-        communityConditions.push(`data->>community.eq."${community}"`);
-        // For array 'communities' field - check if array contains the community
-        communityConditions.push(`data->communities.cs.["${community}"]`);
-        // Also check for partial matches in case the data has variations
-        communityConditions.push(`data->>community.ilike."*${community}*"`);
-      });
-      
-      query = query.or(communityConditions.join(','));
-    }
-  }
+  // Skip communities filtering in PostgREST - handle in post-processing
+  // PostgREST has complex issues with JSON field filtering for arrays vs strings
 
   // Handle property types using both scalar and array formats
   if (filters.property_type && filters.property_type.length > 0) {
@@ -186,6 +169,39 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
       if (filters.area_sqft_max) withinRange = withinRange && numericArea <= filters.area_sqft_max;
       return withinRange;
     });
+  }
+
+  // Apply communities filtering in post-processing to handle both string and array formats
+  if (filters.communities && filters.communities.length > 0) {
+    const validCommunities = filters.communities.filter(c => c && c !== 'null');
+    if (validCommunities.length > 0) {
+      filteredData = filteredData.filter(item => {
+        const itemCommunities = item.data?.communities;
+        const itemCommunity = item.data?.community;
+        
+        // Check if any of the filter communities match the item's communities
+        return validCommunities.some(filterCommunity => {
+          // Check array communities field
+          if (Array.isArray(itemCommunities)) {
+            return itemCommunities.some(community => 
+              community && community.toString().toLowerCase().includes(filterCommunity.toLowerCase())
+            );
+          }
+          
+          // Check scalar communities field
+          if (itemCommunities && typeof itemCommunities === 'string') {
+            return itemCommunities.toLowerCase().includes(filterCommunity.toLowerCase());
+          }
+          
+          // Check scalar community field (for listings)
+          if (itemCommunity && typeof itemCommunity === 'string') {
+            return itemCommunity.toLowerCase().includes(filterCommunity.toLowerCase());
+          }
+          
+          return false;
+        });
+      });
+    }
   }
 
   console.log(`Query returned ${filteredData?.length || 0} properties`);
