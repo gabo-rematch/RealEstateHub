@@ -57,9 +57,8 @@ export default function Home() {
       if (filters.is_distressed_deal !== undefined) queryParams.append('is_distressed_deal', filters.is_distressed_deal.toString());
       if (filters.keyword_search) queryParams.append('keyword_search', filters.keyword_search);
       
-      // Remove pagination to get all results for accurate filtering
-      // queryParams.append('page', currentPage.toString());
-      // queryParams.append('pageSize', '50');
+      // Request all results without pagination for accurate filtering
+      queryParams.append('pageSize', '50000');
 
       const response = await fetch(`/api/properties?${queryParams.toString()}`);
       if (!response.ok) {
