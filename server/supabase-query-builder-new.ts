@@ -25,6 +25,32 @@ interface FilterParams {
 // Post-processing filtering to handle complex numeric conditions and array overlaps
 function applyPostProcessingFilters(data: any[], filters: FilterParams): any[] {
   return data.filter((item: any) => {
+    // Handle bedrooms filtering for multiple selections (union logic)
+    if (filters.bedrooms && filters.bedrooms.length > 1) {
+      const itemBedrooms = item.bedrooms;
+      const hasMatchingBedroom = filters.bedrooms.some(filterBedroom => {
+        if (Array.isArray(itemBedrooms)) {
+          return itemBedrooms.some((bedroom: any) => bedroom.toString() === filterBedroom);
+        }
+        return itemBedrooms && itemBedrooms.toString() === filterBedroom;
+      });
+      if (!hasMatchingBedroom) return false;
+    }
+
+    // Handle property_type filtering for multiple selections (union logic)
+    if (filters.property_type && filters.property_type.length > 1) {
+      const itemPropertyTypes = item.property_type;
+      const hasMatchingType = filters.property_type.some(filterType => {
+        if (Array.isArray(itemPropertyTypes)) {
+          return itemPropertyTypes.some((type: string) => 
+            type && type.toLowerCase() === filterType.toLowerCase()
+          );
+        }
+        return itemPropertyTypes && itemPropertyTypes.toLowerCase() === filterType.toLowerCase();
+      });
+      if (!hasMatchingType) return false;
+    }
+
     // Handle numeric filtering for listings vs client requests
     if (filters.unit_kind === 'listing') {
       // For listings: filter by price_aed within budget range
@@ -40,27 +66,26 @@ function applyPostProcessingFilters(data: any[], filters: FilterParams): any[] {
     if (filters.area_sqft_min && item.area_sqft && item.area_sqft < filters.area_sqft_min) return false;
     if (filters.area_sqft_max && item.area_sqft && item.area_sqft > filters.area_sqft_max) return false;
 
-    // Communities filtering - union (OR) logic for multiple communities
+    // Communities filtering - union (OR) logic for multiple communities with fuzzy matching
     if (filters.communities && filters.communities.length > 0) {
       const itemCommunities = item.communities;
-      const itemCommunity = item.community;
       
       const hasMatchingCommunity = filters.communities.some(filterCommunity => {
-        // Check array communities field
+        // Check array communities field with fuzzy matching
         if (Array.isArray(itemCommunities)) {
-          return itemCommunities.some((community: string) => 
-            community && community.toLowerCase().includes(filterCommunity.toLowerCase())
-          );
+          return itemCommunities.some((community: string) => {
+            if (!community) return false;
+            const cleanCommunity = community.toLowerCase().trim();
+            const cleanFilter = filterCommunity.toLowerCase().trim();
+            return cleanCommunity.includes(cleanFilter) || cleanFilter.includes(cleanCommunity);
+          });
         }
         
-        // Check scalar communities field
+        // Check scalar communities field with fuzzy matching
         if (itemCommunities && typeof itemCommunities === 'string') {
-          return itemCommunities.toLowerCase().includes(filterCommunity.toLowerCase());
-        }
-        
-        // Check scalar community field
-        if (itemCommunity && typeof itemCommunity === 'string') {
-          return itemCommunity.toLowerCase().includes(filterCommunity.toLowerCase());
+          const cleanCommunity = itemCommunities.toLowerCase().trim();
+          const cleanFilter = filterCommunity.toLowerCase().trim();
+          return cleanCommunity.includes(cleanFilter) || cleanFilter.includes(cleanCommunity);
         }
         
         return false;
