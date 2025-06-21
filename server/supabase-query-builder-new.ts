@@ -168,10 +168,10 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
   const requestedPageSize = filters.pageSize || 50;
   const requestedPage = filters.page || 0;
   
-  // Check if we have complex filters that need post-processing
-  const requiresComplexFiltering = (filters.bedrooms && filters.bedrooms.length > 0) ||
-                                   (filters.communities && filters.communities.length > 0) ||
-                                   (filters.property_type && filters.property_type.length > 0);
+  // Check if we have complex filters that need special handling
+  const hasArrayFilters = (filters.bedrooms && filters.bedrooms.length > 0) ||
+                         (filters.communities && filters.communities.length > 0) ||
+                         (filters.property_type && filters.property_type.length > 0);
 
   // Smart filtering: Use previous results if this is a refinement
   if (filters.is_refinement && filters.previous_results && filters.previous_results.length > 0) {
@@ -195,8 +195,8 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     };
   }
 
-  if (!requiresComplexFiltering && requestedPageSize <= 100) {
-    // Simple case: no complex filters, use direct database pagination
+  // Try to use database-level filtering for better performance
+  try {
     const directOffset = requestedPage * requestedPageSize;
     
     let query = supabase
@@ -215,6 +215,41 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     }
     if (filters.transaction_type) {
       query = query.eq('data->>transaction_type', filters.transaction_type);
+    }
+
+    // Array filters using PostgreSQL array operators
+    if (filters.bedrooms && filters.bedrooms.length > 0) {
+      // Convert bedrooms to numbers for comparison
+      const bedroomNumbers = filters.bedrooms.map(b => {
+        if (b.toLowerCase() === 'studio') return 0;
+        return parseFloat(b);
+      }).filter(v => !isNaN(v));
+      
+      if (bedroomNumbers.length > 0) {
+        // Use raw SQL for array overlap check
+        const bedroomConditions = bedroomNumbers.map(num => 
+          `(data->'bedrooms')::jsonb @> '[${num}]'::jsonb`
+        ).join(' OR ');
+        query = query.or(bedroomConditions);
+      }
+    }
+
+    if (filters.communities && filters.communities.length > 0) {
+      // Use raw SQL for array overlap check with both 'communities' and 'community' fields
+      const communityConditions = filters.communities.map(comm => {
+        const escaped = escapePostgRESTString(comm);
+        return `(data->'communities')::jsonb @> '["${escaped}"]'::jsonb,(data->>'community').eq.${escaped}`;
+      }).join(',');
+      query = query.or(communityConditions);
+    }
+
+    if (filters.property_type && filters.property_type.length > 0) {
+      // Use raw SQL for array overlap check
+      const typeConditions = filters.property_type.map(type => {
+        const escaped = escapePostgRESTString(type);
+        return `(data->'property_type')::jsonb @> '["${escaped}"]'::jsonb`;
+      }).join(' OR ');
+      query = query.or(typeConditions);
     }
 
     // Numeric range filters
@@ -255,18 +290,50 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
       query = query.ilike('data->>message_body_raw', `%${filters.keyword_search.trim()}%`);
     }
 
-    // Get count and apply pagination
+    // Build a separate count query with the same filters
     let countQuery = supabase
       .from('inventory_unit_preference')
       .select('pk', { count: 'exact', head: true });
 
-    // Apply same filters to count
+    // Apply same filters to count query
     if (filters.unit_kind) {
       countQuery = countQuery.eq('data->>kind', filters.unit_kind);
     }
     if (filters.transaction_type) {
       countQuery = countQuery.eq('data->>transaction_type', filters.transaction_type);
     }
+
+    // Array filters for count query
+    if (filters.bedrooms && filters.bedrooms.length > 0) {
+      const bedroomNumbers = filters.bedrooms.map(b => {
+        if (b.toLowerCase() === 'studio') return 0;
+        return parseFloat(b);
+      }).filter(v => !isNaN(v));
+      
+      if (bedroomNumbers.length > 0) {
+        const bedroomConditions = bedroomNumbers.map(num => 
+          `(data->'bedrooms')::jsonb @> '[${num}]'::jsonb`
+        ).join(' OR ');
+        countQuery = countQuery.or(bedroomConditions);
+      }
+    }
+
+    if (filters.communities && filters.communities.length > 0) {
+      const communityConditions = filters.communities.map(comm => {
+        const escaped = escapePostgRESTString(comm);
+        return `(data->'communities')::jsonb @> '["${escaped}"]'::jsonb,(data->>'community').eq.${escaped}`;
+      }).join(',');
+      countQuery = countQuery.or(communityConditions);
+    }
+
+    if (filters.property_type && filters.property_type.length > 0) {
+      const typeConditions = filters.property_type.map(type => {
+        const escaped = escapePostgRESTString(type);
+        return `(data->'property_type')::jsonb @> '["${escaped}"]'::jsonb`;
+      }).join(' OR ');
+      countQuery = countQuery.or(typeConditions);
+    }
+
     if (filters.budget_min !== undefined) {
       countQuery = countQuery.gte('data->>budget_min_aed', filters.budget_min.toString());
     }
@@ -304,7 +371,8 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     
     if (countError) {
       console.error('Count query error:', countError);
-      throw new Error(`Count query failed: ${countError.message}`);
+      // Fall back to post-processing approach
+      throw new Error('Database query optimization failed');
     }
 
     // Apply pagination and ordering
@@ -316,7 +384,8 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     
     if (error) {
       console.error('Main query error:', error);
-      throw new Error(`Query failed: ${error.message}`);
+      // Fall back to post-processing approach
+      throw new Error('Database query optimization failed');
     }
 
     // Transform data
@@ -369,10 +438,12 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
         hasMore: requestedPage < Math.ceil((totalCount || 0) / requestedPageSize) - 1
       }
     };
+  } catch (dbError) {
+    // Fall back to post-processing approach if database-level filtering fails
+    console.warn('Database-level filtering failed, falling back to post-processing:', dbError);
   }
 
-  // Complex case: has complex filters, use optimized batch-fetch approach for accurate results
-  
+  // Fallback: Complex case with post-processing (original implementation)
   // Strategy: Fetch ALL records matching basic filters in batches, then post-process for complex filters
   // This ensures we get accurate counts and proper pagination
   
