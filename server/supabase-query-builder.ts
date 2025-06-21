@@ -1,15 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
-const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) ? 
-  createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+let supabase: any = null;
 
-// Helper function to escape PostgREST string values
+if (!supabaseUrl || !supabaseKey) {
+  console.warn('Supabase credentials not configured');
+} else {
+  supabase = createClient(supabaseUrl, supabaseKey);
+}
+
 function escapePostgRESTString(value: string): string {
-  // Escape quotes and backslashes for PostgREST
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return `"${value.replace(/"/g, '""')}"`;
 }
 
 interface FilterParams {
@@ -31,40 +34,6 @@ interface FilterParams {
 }
 
 export async function queryPropertiesWithSupabase(filters: FilterParams) {
-  if (!supabase) {
-    throw new Error('Supabase client not configured');
-  }
-
-  // Use RPC call to execute the complex filtering logic similar to the provided SQL
-  const { data, error } = await supabase.rpc('filter_properties_advanced', {
-    p_unit_kind: filters.unit_kind || null,
-    p_transaction_type: filters.transaction_type || null,
-    p_bedrooms: filters.bedrooms || [],
-    p_communities: filters.communities || [],
-    p_property_type: filters.property_type || [],
-    p_budget_min: filters.budget_min || null,
-    p_budget_max: filters.budget_max || null,
-    p_price_aed: filters.price_aed || null,
-    p_area_sqft_min: filters.area_sqft_min || null,
-    p_area_sqft_max: filters.area_sqft_max || null,
-    p_is_off_plan: filters.is_off_plan === undefined ? null : (filters.is_off_plan ? 'off-plan' : 'ready'),
-    p_is_distressed_deal: filters.is_distressed_deal === undefined ? null : (filters.is_distressed_deal ? 'distressed' : 'market'),
-    p_keyword_search: filters.keyword_search || null,
-    p_page: filters.page || 0,
-    p_page_size: filters.pageSize || 50
-  });
-
-  if (error) {
-    console.log('RPC call failed, falling back to basic filtering:', error.message);
-    
-    // Fallback to basic PostgREST filtering if RPC fails
-    return await queryPropertiesWithBasicFiltering(filters);
-  }
-
-  return data || [];
-}
-
-async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
   if (!supabase) {
     throw new Error('Supabase client not configured');
   }
@@ -93,41 +62,39 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
     query = query.eq('data->>transaction_type', filters.transaction_type);
   }
 
-  // Handle bedrooms filter for both scalar and array formats
+  // Handle bedrooms filtering for both scalar and array formats
   if (filters.bedrooms && filters.bedrooms.length > 0) {
-    const bedroomNumbers = filters.bedrooms.map(b => parseInt(b)).filter(n => !isNaN(n));
-    
-    if (bedroomNumbers.length > 0) {
-      // Create conditions for both scalar and array bedrooms using OR logic
-      const bedroomConditions = [];
+    const validBedrooms = filters.bedrooms.filter(b => b && b !== 'null');
+    if (validBedrooms.length > 0) {
+      // Create conditions for both scalar and array bedrooms
+      const bedroomConditions: string[] = [];
       
-      // For scalar bedrooms (common in listings)
-      bedroomConditions.push(...bedroomNumbers.map(n => `data->>bedrooms.eq.${n}`));
-      
-      // For array bedrooms (common in client_requests) - use contains operator
-      bedroomConditions.push(...bedroomNumbers.map(n => `data->bedrooms.cs.[${n}]`));
-      
-      // Include null handling
-      bedroomConditions.push('data->>bedrooms.is.null', 'data->bedrooms.is.null');
+      validBedrooms.forEach(bedroom => {
+        // For scalar bedrooms field - need quotes for string values
+        bedroomConditions.push(`data->>bedrooms.eq."${bedroom}"`);
+        // For array bedrooms field
+        bedroomConditions.push(`data->bedrooms.cs.${JSON.stringify([parseInt(bedroom)])}`);
+      });
       
       query = query.or(bedroomConditions.join(','));
     }
   }
 
-  // Handle communities filter using native Supabase client methods to avoid PostgREST syntax issues
+  // Handle communities filtering with array overlap
   if (filters.communities && filters.communities.length > 0) {
     const validCommunities = filters.communities.filter(c => c && c !== 'null');
-    
     if (validCommunities.length > 0) {
-      // Use native .in() method for scalar community field which handles escaping properly
-      if (validCommunities.length === 1) {
-        const community = validCommunities[0];
-        // Use separate eq() calls instead of complex OR syntax
-        query = query.eq('data->>community', community);
-      } else {
-        // For multiple communities, use .in() method
-        query = query.in('data->>community', validCommunities);
-      }
+      // Create conditions for both scalar and array communities
+      const communityConditions: string[] = [];
+      
+      validCommunities.forEach(community => {
+        // For scalar communities field - need quotes for string values
+        communityConditions.push(`data->>communities.eq.${escapePostgRESTString(community)}`);
+        // For array communities field
+        communityConditions.push(`data->communities.cs.${JSON.stringify([community])}`);
+      });
+      
+      query = query.or(communityConditions.join(','));
     }
   }
 
@@ -149,8 +116,7 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
     }
   }
 
-  // Skip numeric filtering for now to identify the exact issue
-  // Will handle area and budget filtering in post-processing
+  // Skip numeric filtering in PostgREST query - will handle in post-processing
 
   // Handle boolean filters with three-state logic
   if (filters.is_off_plan === true) {
@@ -166,17 +132,12 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
   }
 
   // Handle keyword search
-  if (filters.keyword_search) {
-    query = query.ilike('data->>message_body_raw', `%${filters.keyword_search}%`);
+  if (filters.keyword_search && filters.keyword_search.trim()) {
+    const searchTerm = filters.keyword_search.trim();
+    query = query.ilike('data->>message_body_raw', `%${searchTerm}%`);
   }
 
-  // Apply ordering and pagination
-  query = query.order('updated_at', { ascending: false });
-
-  if (filters.pageSize) {
-    query = query.limit(filters.pageSize);
-  }
-
+  // Apply pagination
   if (filters.page && filters.pageSize) {
     const offset = filters.page * filters.pageSize;
     query = query.range(offset, offset + filters.pageSize - 1);
@@ -234,78 +195,61 @@ export async function getFilterOptionsWithSupabase() {
     throw new Error('Supabase client not configured');
   }
 
-  try {
-    // Get all data to process filter options
-    const { data, error } = await supabase
-      .from('inventory_unit_preference')
-      .select('data')
-      .limit(5000);
+  const { data, error } = await supabase
+    .from('inventory_unit_preference')
+    .select('data')
+    .not('data->>kind', 'is', null)
+    .not('data->>transaction_type', 'is', null);
 
-    if (error) {
-      throw new Error(`Supabase query error: ${error.message}`);
-    }
-
-    const kinds = new Set<string>();
-    const transactionTypes = new Set<string>();
-    const propertyTypes = new Set<string>();
-    const bedrooms = new Set<number>();
-    const communities = new Set<string>();
-
-    data?.forEach(row => {
-      const jsonData = row.data;
-      
-      // Extract kinds
-      if (jsonData?.kind) {
-        kinds.add(jsonData.kind);
-      }
-      
-      // Extract transaction types
-      if (jsonData?.transaction_type) {
-        transactionTypes.add(jsonData.transaction_type);
-      }
-      
-      // Extract property types
-      if (jsonData?.property_type) {
-        if (Array.isArray(jsonData.property_type)) {
-          jsonData.property_type.forEach((pt: string) => pt && propertyTypes.add(pt));
-        } else if (typeof jsonData.property_type === 'string') {
-          propertyTypes.add(jsonData.property_type);
-        }
-      }
-      
-      // Extract bedrooms
-      if (jsonData?.bedrooms !== undefined) {
-        if (Array.isArray(jsonData.bedrooms)) {
-          jsonData.bedrooms.forEach((b: any) => {
-            const num = parseInt(b);
-            if (!isNaN(num)) bedrooms.add(num);
-          });
-        } else {
-          const num = parseInt(jsonData.bedrooms);
-          if (!isNaN(num)) bedrooms.add(num);
-        }
-      }
-      
-      // Extract communities from both fields
-      if (jsonData?.communities) {
-        if (Array.isArray(jsonData.communities)) {
-          jsonData.communities.forEach((c: string) => c && c !== 'null' && communities.add(c));
-        }
-      }
-      if (jsonData?.community && jsonData.community !== 'null') {
-        communities.add(jsonData.community);
-      }
-    });
-
-    return {
-      kinds: Array.from(kinds).filter(Boolean).sort(),
-      transactionTypes: Array.from(transactionTypes).filter(Boolean).sort(),
-      propertyTypes: Array.from(propertyTypes).filter(Boolean).sort(),
-      bedrooms: Array.from(bedrooms).sort((a, b) => a - b),
-      communities: Array.from(communities).filter(Boolean).sort()
-    };
-  } catch (error) {
-    console.error('Error getting filter options:', error);
-    throw error;
+  if (error) {
+    console.error('Error fetching filter options:', error);
+    throw new Error(`Supabase query error: ${error.message}`);
   }
+
+  const kinds = new Set<string>();
+  const transactionTypes = new Set<string>();
+  const propertyTypes = new Set<string>();
+  const bedrooms = new Set<string>();
+  const communities = new Set<string>();
+
+  data?.forEach((item: any) => {
+    const record = item.data;
+    if (record.kind) kinds.add(record.kind);
+    if (record.transaction_type) transactionTypes.add(record.transaction_type);
+    
+    // Handle both scalar and array property types
+    if (record.property_type) {
+      if (Array.isArray(record.property_type)) {
+        record.property_type.forEach((type: string) => propertyTypes.add(type));
+      } else {
+        propertyTypes.add(record.property_type);
+      }
+    }
+    
+    // Handle both scalar and array bedrooms
+    if (record.bedrooms) {
+      if (Array.isArray(record.bedrooms)) {
+        record.bedrooms.forEach((bedroom: number) => bedrooms.add(bedroom.toString()));
+      } else {
+        bedrooms.add(record.bedrooms.toString());
+      }
+    }
+    
+    // Handle both scalar and array communities
+    if (record.communities) {
+      if (Array.isArray(record.communities)) {
+        record.communities.forEach((community: string) => communities.add(community));
+      } else {
+        communities.add(record.communities);
+      }
+    }
+  });
+
+  return {
+    kinds: Array.from(kinds).sort(),
+    transactionTypes: Array.from(transactionTypes).sort(),
+    propertyTypes: Array.from(propertyTypes).filter(type => type).sort(),
+    bedrooms: Array.from(bedrooms).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b).map(String),
+    communities: Array.from(communities).filter(community => community).sort()
+  };
 }
