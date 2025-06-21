@@ -69,6 +69,93 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
     throw new Error('Supabase client not configured');
   }
 
+  // Build SQL query with proper numeric filtering
+  let sqlQuery = `
+    SELECT 
+      iup.pk,
+      iup.id,
+      iup.data,
+      iup.updated_at,
+      iu.agent_details as inventory_unit
+    FROM inventory_unit_preference iup
+    LEFT JOIN inventory_unit iu ON iup.inventory_unit_pk = iu.pk
+    WHERE 
+      (iup.data->>'kind') IS NOT NULL 
+      AND (iup.data->>'transaction_type') IS NOT NULL
+  `;
+
+  const queryParams: any[] = [];
+  let paramCount = 0;
+
+  // Apply filters using proper SQL with parameter binding
+  if (filters.unit_kind) {
+    paramCount++;
+    sqlQuery += ` AND (iup.data->>'kind') = $${paramCount}`;
+    queryParams.push(filters.unit_kind);
+  }
+
+  if (filters.transaction_type) {
+    paramCount++;
+    sqlQuery += ` AND (iup.data->>'transaction_type') = $${paramCount}`;
+    queryParams.push(filters.transaction_type);
+  }
+
+  // Handle numeric price filtering with proper casting
+  if (filters.unit_kind === 'listing') {
+    if (filters.budget_min) {
+      paramCount++;
+      sqlQuery += ` AND (iup.data->>'price_aed')::numeric >= $${paramCount}`;
+      queryParams.push(filters.budget_min);
+    }
+    if (filters.budget_max) {
+      paramCount++;
+      sqlQuery += ` AND (iup.data->>'price_aed')::numeric <= $${paramCount}`;
+      queryParams.push(filters.budget_max);
+    }
+  }
+
+  // Handle numeric area filtering with proper casting
+  if (filters.area_sqft_min) {
+    paramCount++;
+    sqlQuery += ` AND (iup.data->>'area_sqft')::numeric >= $${paramCount}`;
+    queryParams.push(filters.area_sqft_min);
+  }
+  if (filters.area_sqft_max) {
+    paramCount++;
+    sqlQuery += ` AND (iup.data->>'area_sqft')::numeric <= $${paramCount}`;
+    queryParams.push(filters.area_sqft_max);
+  }
+
+  // Add ordering and pagination
+  sqlQuery += ` ORDER BY iup.updated_at DESC`;
+  
+  if (filters.pageSize) {
+    paramCount++;
+    sqlQuery += ` LIMIT $${paramCount}`;
+    queryParams.push(filters.pageSize);
+  }
+
+  // Execute the SQL query
+  const { data, error } = await supabase.rpc('exec_sql', {
+    query: sqlQuery,
+    params: queryParams
+  });
+
+  if (error) {
+    console.error('SQL query error:', error);
+    // Fallback to basic PostgREST if SQL fails
+    return await fallbackToPostgREST(filters);
+  }
+
+  console.log(`Query returned ${data?.length || 0} properties`);
+  return data || [];
+}
+
+async function fallbackToPostgREST(filters: FilterParams) {
+  if (!supabase) {
+    throw new Error('Supabase client not configured');
+  }
+
   // Start with base query including the join to get agent details
   let query = supabase
     .from('inventory_unit_preference')
@@ -149,30 +236,28 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
     }
   }
 
-  // Handle area filters: min_area <= area_sqft <= max_area
-  // Use raw SQL with proper numeric casting for reliable comparisons
-  if (filters.area_sqft_min && filters.area_sqft_max) {
-    query = query.filter('data->>area_sqft', 'gte', filters.area_sqft_min).filter('data->>area_sqft', 'lte', filters.area_sqft_max);
-  } else if (filters.area_sqft_min) {
-    query = query.filter('data->>area_sqft', 'gte', filters.area_sqft_min);
-  } else if (filters.area_sqft_max) {
-    query = query.filter('data->>area_sqft', 'lte', filters.area_sqft_max);
+  // Handle area filters using basic filtering (PostgREST has issues with ::numeric casting)
+  if (filters.area_sqft_min) {
+    query = query.gte('data->>area_sqft', filters.area_sqft_min.toString());
+  }
+  if (filters.area_sqft_max) {
+    query = query.lte('data->>area_sqft', filters.area_sqft_max.toString());
   }
 
-  // Handle price filters based on property kind
+  // Handle price filters using basic filtering
   if (filters.unit_kind === 'listing') {
     // For listings: min_budget <= price_aed <= max_budget
-    if (filters.budget_min && filters.budget_max) {
-      query = query.filter('data->>price_aed', 'gte', filters.budget_min).filter('data->>price_aed', 'lte', filters.budget_max);
-    } else if (filters.budget_min) {
-      query = query.filter('data->>price_aed', 'gte', filters.budget_min);
-    } else if (filters.budget_max) {
-      query = query.filter('data->>price_aed', 'lte', filters.budget_max);
+    if (filters.budget_min) {
+      query = query.gte('data->>price_aed', filters.budget_min.toString());
+    }
+    if (filters.budget_max) {
+      query = query.lte('data->>price_aed', filters.budget_max.toString());
     }
   } else if (filters.unit_kind === 'client_request') {
     // For client_request: min_budget_aed <= listing_price <= max_budget_aed
     if (filters.price_aed && filters.price_aed > 0) {
-      query = query.filter('data->>budget_min_aed', 'lte', filters.price_aed).filter('data->>budget_max_aed', 'gte', filters.price_aed);
+      query = query.lte('data->>budget_min_aed', filters.price_aed.toString());
+      query = query.gte('data->>budget_max_aed', filters.price_aed.toString());
     }
   } else {
     // When no kind is specified, apply both scenarios with OR logic
