@@ -80,7 +80,7 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     }
   }
 
-  // Handle communities filtering with array overlap - handle both community (scalar) and communities (array) fields
+  // Handle communities filtering - handle both 'community' (scalar) and 'communities' (array) fields
   if (filters.communities && filters.communities.length > 0) {
     const validCommunities = filters.communities.filter(c => c && c !== 'null');
     if (validCommunities.length > 0) {
@@ -88,12 +88,12 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
       const communityConditions: string[] = [];
       
       validCommunities.forEach(community => {
-        // For scalar 'community' field (used in listings)
-        communityConditions.push(`data->>community.eq.${escapePostgRESTString(community)}`);
-        // For scalar 'communities' field
-        communityConditions.push(`data->>communities.eq.${escapePostgRESTString(community)}`);
+        // For scalar 'community' field (used in listings) - exact match
+        communityConditions.push(`data->>community.eq."${community}"`);
         // For array 'communities' field - check if array contains the community
-        communityConditions.push(`data->communities.cs.${JSON.stringify([community])}`);
+        communityConditions.push(`data->communities.cs.["${community}"]`);
+        // Also check for partial matches in case the data has variations
+        communityConditions.push(`data->>community.ilike."*${community}*"`);
       });
       
       query = query.or(communityConditions.join(','));
