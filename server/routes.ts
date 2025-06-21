@@ -362,38 +362,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get unique filter values for dropdowns
   app.get("/api/filter-options", async (req, res) => {
     try {
-      // Extract communities using the exact SQL query provided by user
-      const communitiesResult = await queryDatabase(`
-        SELECT DISTINCT x.community AS communities
-        FROM inventory_unit_preference AS t,
-             LATERAL (
-               SELECT UNNEST(
-                 CASE
-                   WHEN t.data->'communities' IS NULL THEN '{}'::text[]
-                   WHEN jsonb_typeof(t.data->'communities') = 'array' THEN (
-                     SELECT array_agg(elem)
-                     FROM jsonb_array_elements_text(t.data->'communities') AS elem
-                   )
-                   ELSE ARRAY[ t.data->>'communities' ]
-                 END
-               ) AS community
-             ) AS x
-        WHERE x.community IS NOT NULL AND x.community != '' AND x.community != 'null'
-        ORDER BY communities
+      // Directly extract communities from JSON data - handle both arrays and strings
+      const rawData = await queryDatabase(`
+        SELECT data
+        FROM inventory_unit_preference 
+        WHERE data IS NOT NULL
+        LIMIT 10000
       `);
+      
+      const communitiesSet = new Set<string>();
+      
+      if (Array.isArray(rawData)) {
+        rawData.forEach((row: any) => {
+          const data = row.data;
+          if (!data) return;
+          
+          // Handle communities array field
+          if (data.communities) {
+            if (Array.isArray(data.communities)) {
+              data.communities.forEach((community: any) => {
+                if (community && typeof community === 'string' && community.trim() !== '' && community !== 'null') {
+                  communitiesSet.add(community.trim());
+                }
+              });
+            } else if (typeof data.communities === 'string' && data.communities.trim() !== '' && data.communities !== 'null') {
+              communitiesSet.add(data.communities.trim());
+            }
+          }
+          
+          // Handle community scalar field (for listings)
+          if (data.community && typeof data.community === 'string' && data.community.trim() !== '' && data.community !== 'null') {
+            communitiesSet.add(data.community.trim());
+          }
+        });
+      }
+      
+      const extractedCommunities = Array.from(communitiesSet).sort();
+      console.log(`Extracted ${extractedCommunities.length} communities from database`);
 
-      // Always use Supabase query builder when credentials are available
+      // Always use Supabase query builder when credentials are available but override communities
       const useSupabase = process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY;
       
       if (useSupabase) {
         const filterOptions = await getFilterOptionsWithSupabase();
-        const safeCommunitiesResult = Array.isArray(communitiesResult) ? communitiesResult : [];
         res.json({
           kinds: filterOptions.kinds,
           transactionTypes: filterOptions.transactionTypes,
           propertyTypes: filterOptions.propertyTypes,
           bedrooms: filterOptions.bedrooms,
-          communities: safeCommunitiesResult.map((row: any) => row.communities).filter(Boolean).sort()
+          communities: extractedCommunities
         });
         return;
       }
@@ -488,7 +505,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         transactionTypes: safeTransactionTypesResult.map((row: any) => row.value).filter(Boolean),
         propertyTypes: safePropertyTypesResult.map((row: any) => row.value).filter(Boolean),
         bedrooms: safeBedroomsResult.map((row: any) => parseInt(row.value)).filter((val: any) => !isNaN(val) && val >= 0 && val <= 20).sort((a: any, b: any) => a - b),
-        communities: safeCommunitiesResult.map((row: any) => row.communities).filter(Boolean).sort()
+        communities: extractedCommunities
       };
 
       res.json(filterOptions);
