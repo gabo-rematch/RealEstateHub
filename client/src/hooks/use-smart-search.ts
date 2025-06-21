@@ -247,13 +247,13 @@ export function useSmartSearch(options: SmartSearchOptions = {}) {
               break;
           }
         } catch (parseError) {
-          console.error('Error parsing SSE data:', parseError);
+          // Error parsing SSE data
         }
       };
 
       eventSource.onerror = () => {
         const errorMessage = 'Connection error while fetching properties';
-        console.log('SSE connection failed, falling back to regular API...');
+        // SSE connection failed, falling back to regular API
         setError(errorMessage);
         setSearchState(prevState => ({
           ...prevState,
@@ -270,7 +270,7 @@ export function useSmartSearch(options: SmartSearchOptions = {}) {
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch properties';
-      console.log('SSE setup failed, falling back to regular API...', error);
+      // SSE setup failed, falling back to regular API
       setError(errorMessage);
       setSearchState(prevState => ({
         ...prevState,

@@ -165,15 +165,6 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     throw new Error('Supabase client not configured');
   }
 
-  // Debug logging
-  console.log('=== QUERY DEBUG ===');
-  console.log('Filters received:', JSON.stringify(filters, null, 2));
-  console.log('Bedrooms:', filters.bedrooms, 'Length:', filters.bedrooms?.length || 0);
-  console.log('Communities:', filters.communities, 'Length:', filters.communities?.length || 0);
-  console.log('Property type:', filters.property_type, 'Length:', filters.property_type?.length || 0);
-  console.log('Is refinement:', filters.is_refinement || false);
-  console.log('Has previous results:', (filters.previous_results?.length || 0) > 0);
-
   const requestedPageSize = filters.pageSize || 50;
   const requestedPage = filters.page || 0;
   
@@ -182,13 +173,8 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
                                    (filters.communities && filters.communities.length > 0) ||
                                    (filters.property_type && filters.property_type.length > 0);
 
-  console.log('Has complex filters:', requiresComplexFiltering);
-  console.log('===================');
-
   // Smart filtering: Use previous results if this is a refinement
   if (filters.is_refinement && filters.previous_results && filters.previous_results.length > 0) {
-    console.log(`Smart filtering: using ${filters.previous_results.length} previous results instead of database fetch`);
-    
     // Apply only the new filters to previous results
     const filteredData = applyPostProcessingFilters(filters.previous_results, filters);
     
@@ -196,8 +182,6 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
     const targetStart = requestedPage * requestedPageSize;
     const targetEnd = targetStart + requestedPageSize;
     const paginatedData = filteredData.slice(targetStart, targetEnd);
-    
-    console.log(`Smart filtering: filtered to ${filteredData.length} properties, returning page ${requestedPage} (${paginatedData.length} items)`);
     
     return {
       properties: paginatedData,
@@ -375,8 +359,6 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
       };
     });
 
-    console.log(`Query returned ${transformedData.length} properties for page ${requestedPage} (total: ${totalCount})`);
-    
     return {
       properties: transformedData,
       pagination: {
@@ -391,17 +373,6 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
 
   // Complex case: has complex filters, use optimized batch-fetch approach for accurate results
   
-  console.log('Complex filtering mode: fetching all matching basic records using batch strategy...');
-  
-  // Report progress: Starting batch fetch
-  if (filters.progress_callback) {
-    filters.progress_callback({
-      current: 0,
-      total: 100, // We'll estimate total batches as we go
-      phase: 'Fetching records from database...'
-    });
-  }
-  
   // Strategy: Fetch ALL records matching basic filters in batches, then post-process for complex filters
   // This ensures we get accurate counts and proper pagination
   
@@ -413,6 +384,15 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
   
   while (hasMoreData) {
     batchCount++;
+    
+    // Report progress for batch fetching
+    if (filters.progress_callback) {
+      filters.progress_callback({
+        current: batchCount,
+        total: batchCount + 10, // Estimate
+        phase: `Fetching batch ${batchCount}...`
+      });
+    }
     
     let batchQuery = supabase
       .from('inventory_unit_preference')
@@ -474,37 +454,15 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
 
     allData = allData.concat(batchData);
     
-    // Report progress after each batch
-    if (filters.progress_callback) {
-      const estimatedTotal = batchData.length < batchSize ? batchCount : Math.max(batchCount + 5, Math.ceil(allData.length / batchSize) + 10);
-      filters.progress_callback({
-        current: batchCount,
-        total: estimatedTotal,
-        phase: `Fetched ${allData.length} records (batch ${batchCount})`
-      });
-    }
-    
     // Check if we got a full batch - if not, we're done
     if (batchData.length < batchSize) {
       hasMoreData = false;
     } else {
       fromIndex += batchSize;
     }
-    
-    console.log(`Fetched batch ${batchCount}: ${batchData.length} records (total so far: ${allData.length})`);
   }
-
-  // Report progress: Starting data processing
-  if (filters.progress_callback) {
-    filters.progress_callback({
-      current: 100,
-      total: 100,
-      phase: 'Processing and filtering results...'
-    });
-  }
-
+  
   if (allData.length === 0) {
-    console.log(`Query returned 0 properties for page ${requestedPage}`);
     return {
       properties: [],
       pagination: {
@@ -516,8 +474,15 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
       }
     };
   }
-
-  console.log(`Query returned ${allData.length} properties total from ${Math.ceil(allData.length / batchSize)} batches`);
+  
+  // Report progress: Starting data processing
+  if (filters.progress_callback) {
+    filters.progress_callback({
+      current: 100,
+      total: 100,
+      phase: 'Processing and filtering results...'
+    });
+  }
 
   // Transform data
   const transformedData = allData.map((row: any) => {
@@ -564,8 +529,6 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
   const targetStart = requestedPage * requestedPageSize;
   const targetEnd = targetStart + requestedPageSize;
   const paginatedData = filteredData.slice(targetStart, targetEnd);
-  
-  console.log(`Filtered to ${filteredData.length} properties, returning page ${requestedPage} (${paginatedData.length} items) out of ${filteredData.length} total`);
   
   return {
     properties: paginatedData,
@@ -649,7 +612,6 @@ const CACHE_DIR = join(process.cwd(), 'cache');
 try {
   if (!existsSync(CACHE_DIR)) {
     mkdirSync(CACHE_DIR, { recursive: true });
-    console.log('[CACHE] Created cache directory:', CACHE_DIR);
   }
 } catch (err) {
   console.error('[CACHE] Failed to create cache directory', err);
@@ -674,7 +636,6 @@ interface CachedFilterOptions {
 function loadCachedFilterOptions(): CachedFilterOptions | null {
   try {
     if (!existsSync(CACHE_FILE_PATH)) {
-      console.log('Cache file does not exist, will create new cache');
       return null;
     }
 
@@ -686,16 +647,11 @@ function loadCachedFilterOptions(): CachedFilterOptions | null {
     
     // Check if cache is still valid
     if (now < cachedData.expiresAt) {
-      console.log('Using cached filter options (cache valid for', Math.round((cachedData.expiresAt - now) / 1000 / 60), 'more minutes)');
-      console.log('Cache last updated:', cachedData.lastUpdated);
-      console.log('Records processed:', cachedData.recordCount);
       return cachedData;
     } else {
-      console.log('Cache expired, will refresh');
       return null;
     }
   } catch (error) {
-    console.log('Error loading cache file:', error);
     return null;
   }
 }
@@ -710,7 +666,6 @@ function saveCachedFilterOptions(data: any, recordCount: number): void {
       lastUpdated: new Date().toISOString(),
       recordCount
     };
-    console.log('[CACHE] Attempting to write cache file...');
     
     // Ensure cache directory exists
     const cacheDir = dirname(CACHE_FILE_PATH);
@@ -719,9 +674,8 @@ function saveCachedFilterOptions(data: any, recordCount: number): void {
     }
     
     writeFileSync(CACHE_FILE_PATH, JSON.stringify(cachedData, null, 2));
-    console.log('[CACHE] Filter options cached to file for 24 hours at:', CACHE_FILE_PATH);
   } catch (error) {
-    console.error('[CACHE] Error saving cache file:', error, 'Path:', CACHE_FILE_PATH);
+    console.error('[CACHE] Error saving cache file:', error);
   }
 }
 
@@ -732,7 +686,7 @@ export async function getFilterOptionsWithSupabase() {
     return cachedData.data;
   }
 
-  console.log('Cache expired or missing, fetching fresh filter options from database...');
+
   
   const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!);
   
@@ -900,7 +854,7 @@ export async function getFilterOptionsWithSupabase() {
         return a.localeCompare(b);
       });
 
-    console.log(`Extracted from database: ${kinds.length} kinds, ${transactionTypes.length} transaction types, ${propertyTypes.length} property types, ${processedBedrooms.length} bedroom options, ${communities.length} communities`);
+
 
     // If communities < 50 (likely because exec_sql RPC not available) consider it incomplete and throw to activate fallback path
     if (communities.length < 50) {
@@ -916,21 +870,8 @@ export async function getFilterOptionsWithSupabase() {
       communities: communities
     };
 
-    console.log('Final filter options:', {
-      kinds: finalResult.kinds,
-      transaction_types: finalResult.transaction_types,
-      property_types: finalResult.property_types.slice(0, 10), // Show first 10
-      bedrooms: finalResult.bedrooms,
-      communities_count: finalResult.communities.length
-    });
-
     // Cache the results
     saveCachedFilterOptions(finalResult, 0);
-
-    console.log('Filter options cached for 24 hours');
-    console.log('About to return result with keys:', Object.keys(finalResult));
-    console.log('transaction_types value:', finalResult.transaction_types);
-    console.log('property_types value:', finalResult.property_types);
     
     return finalResult;
     
@@ -938,15 +879,11 @@ export async function getFilterOptionsWithSupabase() {
     console.error('Error in getFilterOptionsWithSupabase:', error);
     
     // If RPC fails, fall back to the previous method with larger sample
-    console.log('RPC failed, falling back to table queries with larger sample...');
-    
     try {
       // Get a count to understand the dataset size
       const { count: totalRecords } = await supabase
         .from('inventory_unit_preference')
         .select('*', { count: 'exact', head: true });
-
-      console.log(`Total records in database: ${totalRecords}`);
 
       // Use a much larger sample for better coverage
       const batchSize = 1000; // Supabase row cap per request
@@ -1032,7 +969,7 @@ export async function getFilterOptionsWithSupabase() {
         }
       }
 
-      console.log(`Processed ${recordsProcessed} records, found: ${kindsSet.size} kinds, ${transactionTypesSet.size} transaction types, ${propertyTypesSet.size} property types, ${bedroomsSet.size} bedroom options, ${communitiesSet.size} communities`);
+
 
       // Convert sets to sorted arrays with enhanced processing
       const kindsList = Array.from(kindsSet).sort();
@@ -1082,8 +1019,6 @@ export async function getFilterOptionsWithSupabase() {
         
       const communitiesList = Array.from(communitiesSet).sort();
 
-      console.log(`Extracted ${kindsList.length} kinds, ${transactionTypesList.length} transaction types, ${propertyTypesList.length} property types, ${bedroomsList.length} bedroom options, ${communitiesList.length} communities from database`);
-
       // Return only actual data from database - no fallbacks
       const finalResult = {
         kinds: kindsList,
@@ -1093,21 +1028,8 @@ export async function getFilterOptionsWithSupabase() {
         communities: communitiesList
       };
 
-      console.log('Final filter options:', {
-        kinds: finalResult.kinds,
-        transaction_types: finalResult.transaction_types,
-        property_types: finalResult.property_types.slice(0, 10), // Show first 10
-        bedrooms: finalResult.bedrooms,
-        communities_count: finalResult.communities.length
-      });
-
       // Cache the results
       saveCachedFilterOptions(finalResult, totalRecords || 0);
-
-      console.log('Filter options cached for 24 hours');
-      console.log('About to return result with keys:', Object.keys(finalResult));
-      console.log('transaction_types value:', finalResult.transaction_types);
-      console.log('property_types value:', finalResult.property_types);
       
       return finalResult;
       
@@ -1122,17 +1044,14 @@ export async function getFilterOptionsWithSupabase() {
 
 // Function to manually refresh the cache (can be called via API endpoint)
 export async function refreshFilterOptionsCache() {
-  console.log('Manually refreshing filter options cache...');
-  
   // Delete the cache file if it exists
   try {
     if (existsSync(CACHE_FILE_PATH)) {
       const fs = await import('fs');
       fs.unlinkSync(CACHE_FILE_PATH);
-      console.log('Cache file deleted');
     }
   } catch (error) {
-    console.log('Error deleting cache file:', error);
+    // Silently ignore cache deletion errors
   }
   
   return await getFilterOptionsWithSupabase();

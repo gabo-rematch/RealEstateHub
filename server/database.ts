@@ -105,32 +105,24 @@ export async function queryDatabase(query: string, params: any[] = []): Promise<
     const result = await querySupabaseRPC(query, params);
     return Array.isArray(result) ? result : [];
   } catch (error) {
-    console.log('Supabase RPC failed, using table queries:', (error as Error).message);
+    // Supabase RPC failed, fallback to table queries
     const result = await querySupabaseTable(query, params);
     return Array.isArray(result) ? result : [];
   }
 }
 
 export async function testConnection() {
-  console.log('Environment check:', {
-    SUPABASE_URL: SUPABASE_URL ? '***configured***' : 'missing',
-    SUPABASE_ANON_KEY: SUPABASE_ANON_KEY ? '***configured***' : 'missing'
-  });
-  
   try {
     if (!supabase) {
       throw new Error('Supabase client not configured');
     }
     
-    console.log('Testing Supabase connection...');
     const { data, error } = await supabase.from('inventory_unit_preference').select('*').limit(1);
     if (error) {
       throw error;
     }
-    console.log('Supabase connection successful, found', data?.length || 0, 'records');
     return true;
   } catch (error) {
-    console.error('Supabase connection failed:', (error as Error).message);
     throw new Error(`Database connection failed: ${(error as Error).message}`);
   }
 }

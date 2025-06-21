@@ -7,9 +7,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Test database connection on startup
   try {
     await testConnection();
-    console.log('✅ Database connection successful');
   } catch (error) {
-    console.error('❌ Database connection failed:', error);
+    console.error('Database connection failed:', error);
     process.exit(1);
   }
 
@@ -262,8 +261,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             updated_at: row.updated_at
           };
         });
-
-        console.log(`Query returned ${transformedResults.length} properties for page ${page}`);
         
         res.json({
           properties: transformedResults,
@@ -356,8 +353,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const totalResults = transformedResults.length;
         const totalPages = Math.ceil(totalResults / parseInt(pageSize as string));
         
-        console.log(`Query returned ${transformedResults.length} properties for page ${page}`);
-        
         res.json({
           properties: transformedResults,
           pagination: {
@@ -400,7 +395,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Refresh filter options cache endpoint
   app.post("/api/refresh-filter-options", async (req, res) => {
     try {
-      console.log('🔄 Manually refreshing filter options cache...');
       const filterOptions = await refreshFilterOptionsCache();
       
       const response = {
@@ -411,7 +405,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         communities: filterOptions.communities
       };
       
-      console.log('✅ Filter options cache refreshed successfully');
       res.json({
         success: true,
         message: 'Filter options cache refreshed successfully',

@@ -155,17 +155,9 @@ export default function Home() {
   useEffect(() => {
     // Only search if no properties are loaded and not currently loading
     if (properties.length === 0 && !searchState.isLoading) {
-      console.log('🔍 Performing initial search with filters:', filters);
       searchProperties(filters, 0);
     }
   }, []); // Empty dependency array for mount-only effect
-
-  // Debug logging for search state changes
-  useEffect(() => {
-    console.log('🔄 Search state changed:', searchState);
-    console.log('📊 Properties count:', properties.length);
-    console.log('❌ Error:', error);
-  }, [searchState, properties.length, error]);
 
   // Show error state
   if (error) {
@@ -299,14 +291,7 @@ export default function Home() {
               className="mb-6"
             />
 
-            {/* Debug info */}
-            {process.env.NODE_ENV === 'development' && (
-              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                <strong>Debug Info:</strong> Properties: {properties.length}, Deduplicated: {deduplicatedProperties.length}, 
-                Loading: {searchState.isLoading ? 'Yes' : 'No'}, 
-                Error: {error ? 'Yes' : 'No'}
-              </div>
-            )}
+
 
             {/* Main Content */}
             {searchState.isLoading && deduplicatedProperties.length === 0 ? (
