@@ -446,18 +446,42 @@ export function SearchFiltersComponent({ filters, onFiltersChange, onSearch, isL
             <SearchableMultiSelect
               values={filters.bedrooms?.map((b) => {
                 const num = parseInt(b);
-                return num === 0 ? "Studio" : `${num} Bedroom${num !== 1 ? "s" : ""}`;
+                if (b === "studio" || b === "0") return "Studio";
+                if (isNaN(num)) return b; // Keep original value if not a number
+                return `${num} Bedroom${num !== 1 ? "s" : ""}`;
               }) || []}
               onValuesChange={(values) => {
                 const convertedValues = values.map(v => {
                   if (v === "Studio") return "studio";
-                  return v.split(" ")[0]; // Extract number from "X Bedroom(s)"
+                  // Extract number from "X Bedroom(s)" pattern
+                  const match = v.match(/^(\d+)\s+Bedroom/);
+                  if (match) return match[1];
+                  // Handle raw numeric input
+                  const parsed = parseInt(v);
+                  if (!isNaN(parsed) && parsed >= 0 && parsed <= 15) {
+                    return parsed.toString();
+                  }
+                  return v; // Keep original if no pattern matches
+                }).filter(v => {
+                  // Filter out invalid bedroom values
+                  if (v === "studio") return true;
+                  const num = parseFloat(v);
+                  if (isNaN(num)) return false;
+                  // Only accept whole numbers between 0 and 15
+                  return num >= 0 && num <= 15 && Math.floor(num) === num;
                 });
                 updateFilter('bedrooms', convertedValues.length === 0 ? undefined : convertedValues);
               }}
               options={Array.from(new Set((filterOptions.bedrooms as string[])?.map((bedroom: string) => 
                 bedroom === "studio" || bedroom === "0" ? "Studio" : `${bedroom} Bedroom${bedroom !== "1" ? "s" : ""}`
-              ))).sort() || []}
+              ))).sort((a, b) => {
+                // Sort Studio first, then by number
+                if (a === "Studio") return -1;
+                if (b === "Studio") return 1;
+                const aNum = parseInt(a);
+                const bNum = parseInt(b);
+                return aNum - bNum;
+              }) || []}
               placeholder="Search and select bedrooms..."
               searchPlaceholder="Search bedrooms..."
               emptyText="No bedroom options found."

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { SearchFilters, SupabaseProperty, SearchProgress, SearchState, PropertiesWithProgressResponse, PaginationInfo } from '@/types/property';
 
 interface SmartSearchOptions {
@@ -19,6 +19,28 @@ export function useSmartSearch(options: SmartSearchOptions = {}) {
   
   const previousFiltersRef = useRef<SearchFilters | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const queryCache = useRef<Map<string, { data: SupabaseProperty[]; pagination: PaginationInfo; timestamp: number }>>(new Map());
+  const CACHE_TTL_MS = 60000; // 1 minute cache
+
+  // Clean up EventSource on component unmount
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, []);
+
+  // Helper function to generate cache key from filters
+  const getCacheKey = useCallback((filters: SearchFilters, page: number): string => {
+    return JSON.stringify({ ...filters, page });
+  }, []);
+
+  // Helper function to check if cache is still valid
+  const isCacheValid = useCallback((timestamp: number): boolean => {
+    return Date.now() - timestamp < CACHE_TTL_MS;
+  }, []);
 
   // Helper function to determine if new filters are a refinement of previous ones
   const isRefinement = useCallback((newFilters: SearchFilters, previousFilters: SearchFilters | null): boolean => {
@@ -115,6 +137,21 @@ export function useSmartSearch(options: SmartSearchOptions = {}) {
       // Update previous filters reference
       previousFiltersRef.current = filters;
       
+      // Cache the results
+      const cacheKey = getCacheKey(filters, page);
+      queryCache.current.set(cacheKey, {
+        data: data.properties || [],
+        pagination: data.pagination || null,
+        timestamp: Date.now()
+      });
+      
+      // Clean up old cache entries
+      Array.from(queryCache.current.entries()).forEach(([key, value]) => {
+        if (!isCacheValid(value.timestamp)) {
+          queryCache.current.delete(key);
+        }
+      });
+      
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch properties';
       setError(errorMessage);
@@ -128,9 +165,27 @@ export function useSmartSearch(options: SmartSearchOptions = {}) {
         options.onError(errorMessage);
       }
     }
-  }, [options]);
+  }, [options, getCacheKey, isCacheValid]);
 
   const searchProperties = useCallback(async (filters: SearchFilters, page: number = 0, pageSize: number = 50) => {
+    // Check cache first
+    const cacheKey = getCacheKey(filters, page);
+    const cached = queryCache.current.get(cacheKey);
+    
+    if (cached && isCacheValid(cached.timestamp)) {
+      // Use cached results
+      setProperties(cached.data);
+      setPagination(cached.pagination);
+      setError(null);
+      setSearchState(prevState => ({
+        ...prevState,
+        isLoading: false,
+        previousResults: cached.data,
+        canUseSmartFiltering: false
+      }));
+      return;
+    }
+
     // Clean up previous event source if it exists
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -225,6 +280,20 @@ export function useSmartSearch(options: SmartSearchOptions = {}) {
 
                 // Update previous filters reference
                 previousFiltersRef.current = filters;
+                
+                // Cache the results
+                queryCache.current.set(cacheKey, {
+                  data: data.properties,
+                  pagination: data.pagination,
+                  timestamp: Date.now()
+                });
+                
+                // Clean up old cache entries
+                Array.from(queryCache.current.entries()).forEach(([key, value]) => {
+                  if (!isCacheValid(value.timestamp)) {
+                    queryCache.current.delete(key);
+                  }
+                });
               }
               eventSource.close();
               eventSourceRef.current = null;
@@ -252,20 +321,31 @@ export function useSmartSearch(options: SmartSearchOptions = {}) {
       };
 
       eventSource.onerror = () => {
-        const errorMessage = 'Connection error while fetching properties';
-        // SSE connection failed, falling back to regular API
+        const errorMessage = 'Connection error while fetching properties. Switching to standard mode...';
+        // SSE connection failed, show user-friendly message before falling back
         setError(errorMessage);
         setSearchState(prevState => ({
           ...prevState,
-          isLoading: false,
-          progress: undefined
+          isLoading: true, // Keep loading state while falling back
+          progress: {
+            current: 50,
+            total: 100,
+            phase: 'Switching to standard search mode...',
+            percentage: 50
+          }
         }));
         
         eventSource.close();
         eventSourceRef.current = null;
         
-        // Fall back to regular API
-        fallbackToRegularAPI(filters, page, pageSize);
+        if (options.onError) {
+          options.onError('Real-time progress unavailable, using standard search');
+        }
+        
+        // Fall back to regular API with a small delay for UX
+        setTimeout(() => {
+          fallbackToRegularAPI(filters, page, pageSize);
+        }, 500);
       };
 
     } catch (error) {
@@ -281,7 +361,7 @@ export function useSmartSearch(options: SmartSearchOptions = {}) {
       // Fall back to regular API
       fallbackToRegularAPI(filters, page, pageSize);
     }
-  }, [isRefinement, searchState.previousResults, options, fallbackToRegularAPI]);
+  }, [isRefinement, searchState.previousResults, options, fallbackToRegularAPI, getCacheKey, isCacheValid]);
 
   const clearResults = useCallback(() => {
     if (eventSourceRef.current) {

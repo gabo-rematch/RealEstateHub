@@ -65,9 +65,13 @@ export default function Home() {
   // Get deduplicated properties
   const deduplicatedProperties = deduplicateProperties(properties);
 
-  const handleSearch = () => {
+  // Reset currentPage when filters change
+  useEffect(() => {
     setCurrentPage(0);
-    searchProperties(filters, 0);
+  }, [filters]);
+
+  const handleSearch = () => {
+    searchProperties(filters, currentPage);
   };
 
   // Mobile scroll behavior - hide/show header on scroll
@@ -290,8 +294,6 @@ export default function Home() {
               isSmartFiltering={searchState.canUseSmartFiltering}
               className="mb-6"
             />
-
-
 
             {/* Main Content */}
             {searchState.isLoading && deduplicatedProperties.length === 0 ? (
