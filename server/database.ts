@@ -1,11 +1,23 @@
+// Load environment variables FIRST before any other imports
+import { config } from 'dotenv';
+config();
+
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
-// Supabase client for database access
-const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) ? 
-  createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+// Supabase client for database access - check for template values
+const isValidSupabaseConfig = SUPABASE_URL && 
+                              SUPABASE_ANON_KEY && 
+                              !SUPABASE_URL.includes('your-project-id') &&
+                              !SUPABASE_ANON_KEY.includes('your_supabase_anon_key');
+
+if (!isValidSupabaseConfig) {
+  throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be properly configured. Please check your .env file.');
+}
+
+const supabase = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
 
 // Execute raw SQL queries through Supabase RPC (fallback to table queries)
 async function querySupabaseRPC(query: string, params: any[] = []) {
@@ -82,7 +94,7 @@ async function querySupabaseTable(query: string, params: any[] = []) {
   throw new Error('Complex SQL queries require direct Supabase query builder implementation');
 }
 
-export async function queryDatabase(query: string, params: any[] = []) {
+export async function queryDatabase(query: string, params: any[] = []): Promise<any[]> {
   // Use only Supabase connection
   if (!supabase) {
     throw new Error('Supabase connection not configured - missing SUPABASE_URL or SUPABASE_ANON_KEY');
@@ -90,20 +102,27 @@ export async function queryDatabase(query: string, params: any[] = []) {
   
   // Try RPC first, then fall back to table queries
   try {
-    return await querySupabaseRPC(query, params);
+    const result = await querySupabaseRPC(query, params);
+    return Array.isArray(result) ? result : [];
   } catch (error) {
     console.log('Supabase RPC failed, using table queries:', (error as Error).message);
-    return await querySupabaseTable(query, params);
+    const result = await querySupabaseTable(query, params);
+    return Array.isArray(result) ? result : [];
   }
 }
 
 export async function testConnection() {
+  console.log('Environment check:', {
+    SUPABASE_URL: SUPABASE_URL ? '***configured***' : 'missing',
+    SUPABASE_ANON_KEY: SUPABASE_ANON_KEY ? '***configured***' : 'missing'
+  });
+  
   try {
     if (!supabase) {
-      throw new Error('Supabase connection not configured - missing SUPABASE_URL or SUPABASE_ANON_KEY');
+      throw new Error('Supabase client not configured');
     }
     
-    console.log('Using Supabase connection');
+    console.log('Testing Supabase connection...');
     const { data, error } = await supabase.from('inventory_unit_preference').select('*').limit(1);
     if (error) {
       throw error;
@@ -111,7 +130,7 @@ export async function testConnection() {
     console.log('Supabase connection successful, found', data?.length || 0, 'records');
     return true;
   } catch (error) {
-    console.error('Supabase connection failed:', error);
-    return false;
+    console.error('Supabase connection failed:', (error as Error).message);
+    throw new Error(`Database connection failed: ${(error as Error).message}`);
   }
 }

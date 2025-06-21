@@ -1,3 +1,7 @@
+// Load environment variables FIRST before any other imports
+import { config } from "dotenv";
+config();
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -37,6 +41,31 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Validate environment variables on startup
+  const requiredEnvVars = {
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
+  };
+
+  const missingVars = Object.entries(requiredEnvVars)
+    .filter(([_, value]) => !value)
+    .map(([key, _]) => key);
+
+  if (missingVars.length > 0) {
+    log(`Error: Missing required environment variables: ${missingVars.join(', ')}`);
+    log('The application requires proper Supabase configuration to run.');
+    process.exit(1);
+  }
+
+  // Check for template values
+  if (process.env.SUPABASE_URL?.includes('your-project-id') || 
+      process.env.SUPABASE_ANON_KEY?.includes('your_supabase_anon_key')) {
+    log('Error: Environment variables contain template values. Please configure your actual Supabase credentials.');
+    process.exit(1);
+  }
+
+  log('All required environment variables are configured.');
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -56,15 +85,12 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
+  // Use PORT from environment or default to 5000
   // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
+  const port = process.env.PORT ? parseInt(process.env.PORT) : 5000;
+  
+  // Fix network binding - use IPv4 explicitly to avoid IPv6 issues
+  server.listen(port, "127.0.0.1", () => {
+    log(`serving on http://127.0.0.1:${port} (${process.env.NODE_ENV || 'development'} mode)`);
   });
 })();

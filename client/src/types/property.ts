@@ -14,6 +14,19 @@ export interface SearchFilters {
   keyword_search?: string; // for searching message_body_raw
 }
 
+export interface PaginationInfo {
+  currentPage: number;
+  pageSize: number;
+  totalResults: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
+export interface PropertiesResponse {
+  properties: SupabaseProperty[];
+  pagination: PaginationInfo;
+}
+
 export interface SupabaseProperty {
   pk: number;
   id: string;
@@ -70,4 +83,31 @@ export interface InquiryPayload {
     searchCriteria: SearchFilters;
   };
   timestamp: string;
+}
+
+// New interfaces for smart filtering and progress tracking
+export interface SearchProgress {
+  current: number;
+  total: number;
+  phase: string;
+  percentage?: number;
+}
+
+export interface SearchState {
+  isLoading: boolean;
+  progress?: SearchProgress;
+  previousResults?: SupabaseProperty[];
+  canUseSmartFiltering: boolean;
+}
+
+export interface PropertiesWithProgressResponse {
+  type: 'progress' | 'complete' | 'error';
+  properties?: SupabaseProperty[];
+  pagination?: PaginationInfo;
+  all_results?: SupabaseProperty[];
+  current?: number;
+  total?: number;
+  phase?: string;
+  error?: string;
+  details?: string;
 }

@@ -1,17 +1,18 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { SearchFiltersComponent } from "@/components/search-filters";
 import { SupabasePropertyCard } from "@/components/supabase-property-card";
 import { FloatingActionButton } from "@/components/floating-action-button";
 import { NewSearchFab } from "@/components/new-search-fab";
 import { InquiryModal } from "@/components/inquiry-modal";
+import { SearchLoadingIndicator } from "@/components/search-progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SearchFilters, SupabaseProperty } from "@/types/property";
-import { Building, RotateCcw, Search, ChevronUp, RefreshCw } from "lucide-react";
+import { Building, RotateCcw, Search, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useSmartSearch } from "@/hooks/use-smart-search";
 import { cn } from "@/lib/utils";
 
 export default function Home() {
@@ -23,84 +24,51 @@ export default function Home() {
   });
   const [selectedPropertyIds, setSelectedPropertyIds] = useState<string[]>([]);
   const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
-  const [hasSearched, setHasSearched] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   const [sortBy, setSortBy] = useState("updated_at_desc");
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
-  const [searchTrigger, setSearchTrigger] = useState(0);
-  const [allProperties, setAllProperties] = useState<SupabaseProperty[]>([]);
-  const [hasMoreData, setHasMoreData] = useState(true);
 
-  // Fetch properties based on filters
-  const { data: properties = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['properties', filters, currentPage, searchTrigger],
-    queryFn: async () => {
-      const queryParams = new URLSearchParams();
-      
-      // Add filters to query params
-      if (filters.unit_kind) queryParams.append('unit_kind', filters.unit_kind);
-      if (filters.transaction_type) queryParams.append('transaction_type', filters.transaction_type);
-      if (filters.bedrooms?.length) {
-        filters.bedrooms.forEach(bedroom => queryParams.append('bedrooms', bedroom));
-      }
-      if (filters.communities?.length) {
-        filters.communities.forEach(community => queryParams.append('communities', community));
-      }
-      if (filters.property_type?.length) {
-        filters.property_type.forEach(type => queryParams.append('property_type', type));
-      }
-      if (filters.budget_min) queryParams.append('budget_min', filters.budget_min.toString());
-      if (filters.budget_max) queryParams.append('budget_max', filters.budget_max.toString());
-      if (filters.price_aed) queryParams.append('price_aed', filters.price_aed.toString());
-      if (filters.area_sqft_min) queryParams.append('area_sqft_min', filters.area_sqft_min.toString());
-      if (filters.area_sqft_max) queryParams.append('area_sqft_max', filters.area_sqft_max.toString());
-      if (filters.is_off_plan !== undefined) queryParams.append('is_off_plan', filters.is_off_plan.toString());
-      if (filters.is_distressed_deal !== undefined) queryParams.append('is_distressed_deal', filters.is_distressed_deal.toString());
-      if (filters.keyword_search) queryParams.append('keyword_search', filters.keyword_search);
-      
-      // Use pagination for better performance
-      queryParams.append('page', currentPage.toString());
-      queryParams.append('pageSize', '50');
-
-      const response = await fetch(`/api/properties?${queryParams.toString()}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch properties');
-      }
-      
-      const data = await response.json();
-      
-      // Handle pagination - accumulate results for "Load More" functionality
-      if (currentPage === 0) {
-        setAllProperties(data);
-      } else {
-        setAllProperties(prev => [...prev, ...data]);
-      }
-      
-      // Check if we have more data available
-      setHasMoreData(data.length === 50);
-      
-      return data;
+  // Use the new smart search hook
+  const { 
+    searchProperties, 
+    clearResults, 
+    properties, 
+    pagination, 
+    error, 
+    searchState 
+  } = useSmartSearch({
+    onProgressUpdate: (progress) => {
+      // Could add additional progress handling here if needed
     },
-    enabled: true,
+    onError: (errorMessage) => {
+      toast({
+        title: "Search Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
   });
 
+  // Helper function to deduplicate properties based on pk
+  const deduplicateProperties = (properties: SupabaseProperty[]): SupabaseProperty[] => {
+    const seen = new Set<number>();
+    return properties.filter(property => {
+      if (seen.has(property.pk)) {
+        return false;
+      }
+      seen.add(property.pk);
+      return true;
+    });
+  };
 
+  // Get deduplicated properties
+  const deduplicatedProperties = deduplicateProperties(properties);
 
   const handleSearch = () => {
     setCurrentPage(0);
-    setAllProperties([]);
-    setHasSearched(true);
-    setSearchTrigger(prev => prev + 1);
+    searchProperties(filters, 0);
   };
-
-  const handleLoadMore = () => {
-    if (hasMoreData && !isLoading) {
-      setCurrentPage(prev => prev + 1);
-    }
-  };
-
-  
 
   // Mobile scroll behavior - hide/show header on scroll
   useEffect(() => {
@@ -139,8 +107,8 @@ export default function Home() {
   const handleNewSearch = () => {
     setFilters({ unit_kind: "", transaction_type: "" });
     setSelectedPropertyIds([]);
-    setHasSearched(false);
     setCurrentPage(0);
+    clearResults();
     sessionStorage.removeItem('inquiryFormData');
     toast({
       title: "Search reset successfully",
@@ -176,7 +144,7 @@ export default function Home() {
     if ('vibrate' in navigator) {
       navigator.vibrate(50); // Haptic feedback
     }
-    await refetch();
+    await searchProperties(filters, 0);
     toast({
       title: "Properties refreshed",
       description: "Showing latest property listings",
@@ -221,7 +189,7 @@ export default function Home() {
 
   // Get selected properties for FAB
   const selectedProperties = selectedPropertyIds.map(id => {
-    const property = properties.find((p: SupabaseProperty) => p.id === id || p.pk.toString() === id);
+    const property = deduplicatedProperties.find((p: SupabaseProperty) => p.id === id || p.pk.toString() === id);
     return property ? {
       id: property.id || property.pk.toString(),
       title: `${property.property_type?.[0] || 'Property'} in ${property.communities?.[0] || 'Dubai'}${property.bedrooms?.[0] ? ` - ${property.bedrooms[0]} BR` : ''}`
@@ -301,13 +269,21 @@ export default function Home() {
               filters={filters}
               onFiltersChange={setFilters}
               onSearch={handleSearch}
-              isLoading={isLoading}
+              isLoading={searchState.isLoading}
             />
           </div>
 
           {/* Property Results */}
           <div className="lg:col-span-8 xl:col-span-9 mt-6 lg:mt-0">
-            {hasSearched ? (
+            {/* Search Progress Indicator */}
+            <SearchLoadingIndicator
+              isLoading={searchState.isLoading}
+              progress={searchState.progress}
+              isSmartFiltering={searchState.canUseSmartFiltering}
+              className="mb-6"
+            />
+
+            {deduplicatedProperties.length > 0 ? (
               <>
                 {/* Keyword Search Bar */}
                 <div className="mb-6">
@@ -343,9 +319,17 @@ export default function Home() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className="text-xl font-semibold text-gray-900">Properties</h2>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {properties.length} properties found
-                      </p>
+                      <div className="text-sm text-gray-500 mt-1 space-y-1">
+                        <p>
+                          Showing {properties.length} of {pagination?.totalResults || 0} total results
+                          {pagination && pagination.totalPages > 1 && ` (Page ${(pagination.currentPage ?? 0) + 1} of ${pagination.totalPages})`}
+                        </p>
+                        {pagination && (pagination.totalResults || 0) > properties.length && (
+                          <p className="text-blue-600">
+                            {(pagination.totalResults || 0) - properties.length} more results available
+                          </p>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       <span className="text-sm text-gray-500">Sort by:</span>
@@ -363,7 +347,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                {isLoading && properties.length === 0 ? (
+                {searchState.isLoading && deduplicatedProperties.length === 0 ? (
                   <div className="space-y-4">
                     {[...Array(5)].map((_, i) => (
                       <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -379,9 +363,9 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
-                ) : properties && properties.length > 0 ? (
+                ) : deduplicatedProperties && deduplicatedProperties.length > 0 ? (
                   <div className="space-y-4">
-                    {(currentPage === 0 ? properties : allProperties as SupabaseProperty[]).map((property: SupabaseProperty, index: number) => (
+                    {deduplicatedProperties.map((property: SupabaseProperty, index: number) => (
                       <SupabasePropertyCard
                         key={`${property.pk}-${property.id || index}`}
                         property={property}
@@ -393,29 +377,67 @@ export default function Home() {
                     ))}
                     
                     {/* Pagination Controls */}
-                    {properties.length > 0 && (
-                      <div className="flex justify-center items-center space-x-4 mt-8 pt-6 border-t">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setCurrentPage(prev => Math.max(0, prev - 1));
-                          }}
-                          disabled={currentPage === 0}
-                        >
-                          Previous
-                        </Button>
-                        <span className="text-sm text-gray-600">
-                          Page {currentPage + 1}
-                        </span>
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setCurrentPage(prev => prev + 1);
-                          }}
-                          disabled={properties.length < 50}
-                        >
-                          Next
-                        </Button>
+                    {pagination && pagination.totalPages > 1 && (
+                      <div className="flex items-center justify-between py-4 border-t border-gray-200">
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(0)}
+                            disabled={currentPage === 0}
+                          >
+                            First
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                            disabled={currentPage === 0}
+                          >
+                            Previous
+                          </Button>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-gray-600">
+                            Page {currentPage + 1} of {pagination.totalPages}
+                          </span>
+                          <div className="flex items-center space-x-1">
+                            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                              const pageNum = Math.max(0, Math.min(pagination.totalPages - 5, currentPage - 2)) + i;
+                              return (
+                                <Button
+                                  key={pageNum}
+                                  variant={pageNum === currentPage ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => setCurrentPage(pageNum)}
+                                  className="w-8 h-8 p-0"
+                                >
+                                  {pageNum + 1}
+                                </Button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(prev => Math.min(pagination.totalPages - 1, prev + 1))}
+                            disabled={currentPage >= pagination.totalPages - 1}
+                          >
+                            Next
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(pagination.totalPages - 1)}
+                            disabled={currentPage >= pagination.totalPages - 1}
+                          >
+                            Last
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -426,16 +448,11 @@ export default function Home() {
                     </div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No properties available</h3>
                     <p className="text-gray-500 mb-6">
-                      {hasSearched ? 
-                        "No properties match your current search criteria. Try adjusting your filters." :
-                        "The property database is currently empty. Properties will appear here once data is added to the system."
-                      }
+                      The property database is currently empty. Properties will appear here once data is added to the system.
                     </p>
-                    {hasSearched && (
-                      <Button onClick={handleNewSearch} variant="outline">
-                        Clear All Filters
-                      </Button>
-                    )}
+                    <Button onClick={handleNewSearch} variant="outline">
+                      Clear All Filters
+                    </Button>
                   </div>
                 )}
               </>

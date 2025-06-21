@@ -15,6 +15,7 @@ import { SearchFilters, InquiryFormData, InquiryPayload } from "@/types/property
 import { Send, X, Phone, MessageSquare, Link2, ChevronLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { env } from "@/lib/env";
 
 const inquirySchema = z.object({
   whatsappNumber: z.string()
@@ -102,26 +103,23 @@ export function InquiryModal({ isOpen, onClose, selectedPropertyIds, searchFilte
         timestamp: new Date().toISOString(),
       };
 
-      // Send to webhook or simulate in demo mode
-      const webhookUrl = import.meta.env.VITE_WEBHOOK_URL;
+      // Send to webhook
+      const webhookUrl = env.WEBHOOK_URL;
       
       if (!webhookUrl) {
-        // Demo mode - simulate webhook submission
-        console.log('Demo mode: Inquiry payload:', payload);
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-      } else {
-        // Production mode - send to actual webhook
-        const response = await fetch(webhookUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
+        throw new Error('Webhook URL not configured. Please set VITE_WEBHOOK_URL in your environment variables.');
+      }
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       toast({
@@ -134,7 +132,7 @@ export function InquiryModal({ isOpen, onClose, selectedPropertyIds, searchFilte
       console.error('Error sending inquiry:', error);
       toast({
         title: "Error sending inquiry",
-        description: "Please try again later.",
+        description: error instanceof Error ? error.message : "Please try again later.",
         variant: "destructive",
       });
     } finally {
