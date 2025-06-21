@@ -390,12 +390,12 @@ export async function getFilterOptionsWithSupabase() {
   
   console.log('Supabase RPC failed, using table queries: RPC not available, using table queries');
   
-  // Extract communities using comprehensive approach with high limits
+  // Extract communities using efficient approach
   const communitiesQuery = supabase
     .from('inventory_unit_preference')
     .select('data')
     .not('data->>communities', 'is', null)
-    .limit(50000);
+    .limit(10000);
 
   const { data: communitiesData, error: communitiesError } = await communitiesQuery;
 

@@ -68,7 +68,16 @@ export default function Home() {
       
       const data = await response.json();
       
-      // Return data without deduplication to show all matching properties
+      // Handle pagination - accumulate results for "Load More" functionality
+      if (currentPage === 0) {
+        setAllProperties(data);
+      } else {
+        setAllProperties(prev => [...prev, ...data]);
+      }
+      
+      // Check if we have more data available
+      setHasMoreData(data.length === 50);
+      
       return data;
     },
     enabled: true,
@@ -78,8 +87,15 @@ export default function Home() {
 
   const handleSearch = () => {
     setCurrentPage(0); // Reset to first page when searching
+    setAllProperties([]); // Clear previous results
     setHasSearched(true); // Mark that a search has been performed
     setSearchTrigger(prev => prev + 1); // Trigger a new query
+  };
+
+  const handleLoadMore = () => {
+    if (hasMoreData && !isLoading) {
+      setCurrentPage(prev => prev + 1);
+    }
   };
 
   
@@ -363,7 +379,7 @@ export default function Home() {
                   </div>
                 ) : properties && properties.length > 0 ? (
                   <div className="space-y-4">
-                    {(properties as SupabaseProperty[]).map((property: SupabaseProperty, index: number) => (
+                    {(currentPage === 0 ? properties : allProperties as SupabaseProperty[]).map((property: SupabaseProperty, index: number) => (
                       <SupabasePropertyCard
                         key={`${property.pk}-${property.id || index}`}
                         property={property}
