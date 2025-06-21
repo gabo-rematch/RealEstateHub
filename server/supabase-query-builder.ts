@@ -149,29 +149,29 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
     }
   }
 
-  // Handle area filters: min_area <= area_sqft <= max_area
+  // Handle area filters: min_area <= area_sqft <= max_area (cast to numeric for proper comparison)
   if (filters.area_sqft_min) {
-    query = query.gte('data->>area_sqft', filters.area_sqft_min);
+    query = query.filter('data->>area_sqft::numeric', 'gte', filters.area_sqft_min);
   }
   if (filters.area_sqft_max) {
-    query = query.lte('data->>area_sqft', filters.area_sqft_max);
+    query = query.filter('data->>area_sqft::numeric', 'lte', filters.area_sqft_max);
   }
 
-  // Handle price filters based on property kind
+  // Handle price filters based on property kind (cast to numeric for proper comparison)
   if (filters.unit_kind === 'listing') {
     // For listings: min_budget <= price_aed <= max_budget
     if (filters.budget_min) {
-      query = query.gte('data->>price_aed', filters.budget_min);
+      query = query.filter('data->>price_aed::numeric', 'gte', filters.budget_min);
     }
     if (filters.budget_max) {
-      query = query.lte('data->>price_aed', filters.budget_max);
+      query = query.filter('data->>price_aed::numeric', 'lte', filters.budget_max);
     }
   } else if (filters.unit_kind === 'client_request') {
     // For client_request: min_budget_aed <= listing_price <= max_budget_aed
     if (filters.price_aed && filters.price_aed > 0) {
       // Check if the listing price falls within the client's budget range
-      query = query.lte('data->>budget_min_aed', filters.price_aed);
-      query = query.gte('data->>budget_max_aed', filters.price_aed);
+      query = query.filter('data->>budget_min_aed::numeric', 'lte', filters.price_aed);
+      query = query.filter('data->>budget_max_aed::numeric', 'gte', filters.price_aed);
     }
   } else {
     // When no kind is specified, apply both scenarios with OR logic
@@ -179,16 +179,16 @@ async function queryPropertiesWithBasicFiltering(filters: FilterParams) {
     
     // Listing scenario: budget range filters on price_aed
     if (filters.budget_min && filters.budget_max) {
-      priceConditions.push(`and(data->>price_aed.gte.${filters.budget_min},data->>price_aed.lte.${filters.budget_max})`);
+      priceConditions.push(`and(data->>price_aed::numeric.gte.${filters.budget_min},data->>price_aed::numeric.lte.${filters.budget_max})`);
     } else if (filters.budget_min) {
-      priceConditions.push(`data->>price_aed.gte.${filters.budget_min}`);
+      priceConditions.push(`data->>price_aed::numeric.gte.${filters.budget_min}`);
     } else if (filters.budget_max) {
-      priceConditions.push(`data->>price_aed.lte.${filters.budget_max}`);
+      priceConditions.push(`data->>price_aed::numeric.lte.${filters.budget_max}`);
     }
     
     // Client request scenario: listing price within budget range
     if (filters.price_aed && filters.price_aed > 0) {
-      priceConditions.push(`and(data->>budget_min_aed.lte.${filters.price_aed},data->>budget_max_aed.gte.${filters.price_aed})`);
+      priceConditions.push(`and(data->>budget_min_aed::numeric.lte.${filters.price_aed},data->>budget_max_aed::numeric.gte.${filters.price_aed})`);
     }
     
     if (priceConditions.length > 0) {
