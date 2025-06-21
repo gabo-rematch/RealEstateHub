@@ -65,6 +65,71 @@ export function useSmartSearch(options: SmartSearchOptions = {}) {
     return bedroomsRefinement && communitiesRefinement && propertyTypesRefinement && hasAddedFilters;
   }, [searchState.previousResults]);
 
+  // Fallback function for regular API
+  const fallbackToRegularAPI = useCallback(async (filters: SearchFilters, page: number = 0, pageSize: number = 50) => {
+    try {
+      // Build query parameters for regular API
+      const queryParams = new URLSearchParams();
+      
+      if (filters.unit_kind) queryParams.append('unit_kind', filters.unit_kind);
+      if (filters.transaction_type) queryParams.append('transaction_type', filters.transaction_type);
+      if (filters.bedrooms?.length) {
+        filters.bedrooms.forEach(bedroom => queryParams.append('bedrooms', bedroom));
+      }
+      if (filters.communities?.length) {
+        filters.communities.forEach(community => queryParams.append('communities', community));
+      }
+      if (filters.property_type?.length) {
+        filters.property_type.forEach(type => queryParams.append('property_type', type));
+      }
+      if (filters.budget_min) queryParams.append('budget_min', filters.budget_min.toString());
+      if (filters.budget_max) queryParams.append('budget_max', filters.budget_max.toString());
+      if (filters.price_aed) queryParams.append('price_aed', filters.price_aed.toString());
+      if (filters.area_sqft_min) queryParams.append('area_sqft_min', filters.area_sqft_min.toString());
+      if (filters.area_sqft_max) queryParams.append('area_sqft_max', filters.area_sqft_max.toString());
+      if (filters.is_off_plan !== undefined) queryParams.append('is_off_plan', filters.is_off_plan.toString());
+      if (filters.is_distressed_deal !== undefined) queryParams.append('is_distressed_deal', filters.is_distressed_deal.toString());
+      if (filters.keyword_search) queryParams.append('keyword_search', filters.keyword_search);
+      
+      queryParams.append('page', page.toString());
+      queryParams.append('pageSize', pageSize.toString());
+
+      const response = await fetch(`/api/properties?${queryParams.toString()}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch properties');
+      }
+      
+      const data = await response.json();
+      
+      setProperties(data.properties || []);
+      setPagination(data.pagination || null);
+      
+      setSearchState(prevState => ({
+        ...prevState,
+        isLoading: false,
+        previousResults: data.properties || [],
+        canUseSmartFiltering: false,
+        progress: undefined
+      }));
+
+      // Update previous filters reference
+      previousFiltersRef.current = filters;
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch properties';
+      setError(errorMessage);
+      setSearchState(prevState => ({
+        ...prevState,
+        isLoading: false,
+        progress: undefined
+      }));
+      
+      if (options.onError) {
+        options.onError(errorMessage);
+      }
+    }
+  }, [options]);
+
   const searchProperties = useCallback(async (filters: SearchFilters, page: number = 0, pageSize: number = 50) => {
     // Clean up previous event source if it exists
     if (eventSourceRef.current) {
@@ -188,6 +253,7 @@ export function useSmartSearch(options: SmartSearchOptions = {}) {
 
       eventSource.onerror = () => {
         const errorMessage = 'Connection error while fetching properties';
+        console.log('SSE connection failed, falling back to regular API...');
         setError(errorMessage);
         setSearchState(prevState => ({
           ...prevState,
@@ -195,15 +261,16 @@ export function useSmartSearch(options: SmartSearchOptions = {}) {
           progress: undefined
         }));
         
-        if (options.onError) {
-          options.onError(errorMessage);
-        }
         eventSource.close();
         eventSourceRef.current = null;
+        
+        // Fall back to regular API
+        fallbackToRegularAPI(filters, page, pageSize);
       };
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch properties';
+      console.log('SSE setup failed, falling back to regular API...', error);
       setError(errorMessage);
       setSearchState(prevState => ({
         ...prevState,
@@ -211,11 +278,10 @@ export function useSmartSearch(options: SmartSearchOptions = {}) {
         progress: undefined
       }));
       
-      if (options.onError) {
-        options.onError(errorMessage);
-      }
+      // Fall back to regular API
+      fallbackToRegularAPI(filters, page, pageSize);
     }
-  }, [isRefinement, searchState.previousResults, options]);
+  }, [isRefinement, searchState.previousResults, options, fallbackToRegularAPI]);
 
   const clearResults = useCallback(() => {
     if (eventSourceRef.current) {

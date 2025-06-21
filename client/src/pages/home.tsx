@@ -151,6 +151,22 @@ export default function Home() {
     });
   };
 
+  // Perform initial search when component mounts
+  useEffect(() => {
+    // Only search if no properties are loaded and not currently loading
+    if (properties.length === 0 && !searchState.isLoading) {
+      console.log('🔍 Performing initial search with filters:', filters);
+      searchProperties(filters, 0);
+    }
+  }, []); // Empty dependency array for mount-only effect
+
+  // Debug logging for search state changes
+  useEffect(() => {
+    console.log('🔄 Search state changed:', searchState);
+    console.log('📊 Properties count:', properties.length);
+    console.log('❌ Error:', error);
+  }, [searchState, properties.length, error]);
+
   // Show error state
   if (error) {
     return (
@@ -283,7 +299,39 @@ export default function Home() {
               className="mb-6"
             />
 
-            {deduplicatedProperties.length > 0 ? (
+            {/* Debug info */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                <strong>Debug Info:</strong> Properties: {properties.length}, Deduplicated: {deduplicatedProperties.length}, 
+                Loading: {searchState.isLoading ? 'Yes' : 'No'}, 
+                Error: {error ? 'Yes' : 'No'}
+              </div>
+            )}
+
+            {/* Main Content */}
+            {searchState.isLoading && deduplicatedProperties.length === 0 ? (
+              // Loading state with skeleton
+              <div className="space-y-4">
+                <div className="mb-6">
+                  <h2 className="text-xl font-semibold text-gray-900">Loading Properties...</h2>
+                  <p className="text-sm text-gray-500 mt-1">Fetching available properties from the database.</p>
+                </div>
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="animate-pulse">
+                      <div className="flex space-x-4">
+                        <div className="w-5 h-5 bg-gray-200 rounded"></div>
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : deduplicatedProperties.length > 0 ? (
+              // Properties loaded and available
               <>
                 {/* Keyword Search Bar */}
                 <div className="mb-6">
@@ -315,18 +363,19 @@ export default function Home() {
                   </div>
                 </div>
 
+                {/* Properties header and sorting */}
                 <div className="mb-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className="text-xl font-semibold text-gray-900">Properties</h2>
                       <div className="text-sm text-gray-500 mt-1 space-y-1">
                         <p>
-                          Showing {properties.length} of {pagination?.totalResults || 0} total results
+                          Showing {deduplicatedProperties.length} of {pagination?.totalResults || 0} total results
                           {pagination && pagination.totalPages > 1 && ` (Page ${(pagination.currentPage ?? 0) + 1} of ${pagination.totalPages})`}
                         </p>
-                        {pagination && (pagination.totalResults || 0) > properties.length && (
+                        {pagination && (pagination.totalResults || 0) > deduplicatedProperties.length && (
                           <p className="text-blue-600">
-                            {(pagination.totalResults || 0) - properties.length} more results available
+                            {(pagination.totalResults || 0) - deduplicatedProperties.length} more results available
                           </p>
                         )}
                       </div>
@@ -347,124 +396,114 @@ export default function Home() {
                   </div>
                 </div>
 
-                {searchState.isLoading && deduplicatedProperties.length === 0 ? (
-                  <div className="space-y-4">
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                        <div className="animate-pulse">
-                          <div className="flex space-x-4">
-                            <div className="w-5 h-5 bg-gray-200 rounded"></div>
-                            <div className="flex-1 space-y-2">
-                              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                            </div>
-                          </div>
+                {/* Property Cards */}
+                <div className="space-y-4">
+                  {deduplicatedProperties.map((property: SupabaseProperty, index: number) => (
+                    <SupabasePropertyCard
+                      key={`${property.pk}-${property.id || index}`}
+                      property={property}
+                      isSelected={selectedPropertyIds.includes(property.id || String(property.pk))}
+                      onSelectionChange={(selected) => 
+                        handlePropertySelection(property.id || String(property.pk), selected)
+                      }
+                    />
+                  ))}
+                  
+                  {/* Pagination Controls */}
+                  {pagination && pagination.totalPages > 1 && (
+                    <div className="flex items-center justify-between py-4 border-t border-gray-200">
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(0)}
+                          disabled={currentPage === 0}
+                        >
+                          First
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                          disabled={currentPage === 0}
+                        >
+                          Previous
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm text-gray-600">
+                          Page {currentPage + 1} of {pagination.totalPages}
+                        </span>
+                        <div className="flex items-center space-x-1">
+                          {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                            const pageNum = Math.max(0, Math.min(pagination.totalPages - 5, currentPage - 2)) + i;
+                            return (
+                              <Button
+                                key={pageNum}
+                                variant={pageNum === currentPage ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setCurrentPage(pageNum)}
+                                className="w-8 h-8 p-0"
+                              >
+                                {pageNum + 1}
+                              </Button>
+                            );
+                          })}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                ) : deduplicatedProperties && deduplicatedProperties.length > 0 ? (
-                  <div className="space-y-4">
-                    {deduplicatedProperties.map((property: SupabaseProperty, index: number) => (
-                      <SupabasePropertyCard
-                        key={`${property.pk}-${property.id || index}`}
-                        property={property}
-                        isSelected={selectedPropertyIds.includes(property.id || String(property.pk))}
-                        onSelectionChange={(selected) => 
-                          handlePropertySelection(property.id || String(property.pk), selected)
-                        }
-                      />
-                    ))}
-                    
-                    {/* Pagination Controls */}
-                    {pagination && pagination.totalPages > 1 && (
-                      <div className="flex items-center justify-between py-4 border-t border-gray-200">
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCurrentPage(0)}
-                            disabled={currentPage === 0}
-                          >
-                            First
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
-                            disabled={currentPage === 0}
-                          >
-                            Previous
-                          </Button>
-                        </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-600">
-                            Page {currentPage + 1} of {pagination.totalPages}
-                          </span>
-                          <div className="flex items-center space-x-1">
-                            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                              const pageNum = Math.max(0, Math.min(pagination.totalPages - 5, currentPage - 2)) + i;
-                              return (
-                                <Button
-                                  key={pageNum}
-                                  variant={pageNum === currentPage ? "default" : "outline"}
-                                  size="sm"
-                                  onClick={() => setCurrentPage(pageNum)}
-                                  className="w-8 h-8 p-0"
-                                >
-                                  {pageNum + 1}
-                                </Button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCurrentPage(prev => Math.min(pagination.totalPages - 1, prev + 1))}
-                            disabled={currentPage >= pagination.totalPages - 1}
-                          >
-                            Next
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCurrentPage(pagination.totalPages - 1)}
-                            disabled={currentPage >= pagination.totalPages - 1}
-                          >
-                            Last
-                          </Button>
-                        </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(prev => Math.min(pagination.totalPages - 1, prev + 1))}
+                          disabled={currentPage >= pagination.totalPages - 1}
+                        >
+                          Next
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentPage(pagination.totalPages - 1)}
+                          disabled={currentPage >= pagination.totalPages - 1}
+                        >
+                          Last
+                        </Button>
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-16">
-                    <div className="w-16 h-16 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-                      <Search className="h-8 w-8 text-gray-400" />
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No properties available</h3>
-                    <p className="text-gray-500 mb-6">
-                      The property database is currently empty. Properties will appear here once data is added to the system.
-                    </p>
-                    <Button onClick={handleNewSearch} variant="outline">
-                      Clear All Filters
-                    </Button>
-                  </div>
-                )}
+                  )}
+                </div>
               </>
-            ) : (
+            ) : !searchState.isLoading && properties.length === 0 && !error ? (
+              // No properties found state
               <div className="text-center py-16">
                 <div className="w-16 h-16 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
                   <Search className="h-8 w-8 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Loading properties...</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No properties found</h3>
                 <p className="text-gray-500 mb-6">
-                  Fetching available properties from the database.
+                  Try adjusting your search filters or check back later for new listings.
                 </p>
+                <Button onClick={handleNewSearch} variant="outline">
+                  Clear All Filters
+                </Button>
+              </div>
+            ) : (
+              // Initial state or error fallback
+              <div className="text-center py-16">
+                <div className="w-16 h-16 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
+                  <Search className="h-8 w-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {error ? 'Search Error' : 'Ready to Search'}
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  {error ? 'There was an issue loading properties. Please try again.' : 'Use the filters to search for properties or click below to view all properties.'}
+                </p>
+                <Button onClick={handleSearch} variant="outline">
+                  {error ? 'Retry Search' : 'Load All Properties'}
+                </Button>
               </div>
             )}
           </div>
