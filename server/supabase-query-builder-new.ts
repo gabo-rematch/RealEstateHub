@@ -132,13 +132,14 @@ export async function queryPropertiesWithSupabase(filters: FilterParams) {
       query = query.eq('data->>transaction_type', filters.transaction_type);
     }
 
-    // Apply simple filters that work well with PostgREST
+    // Apply simple filters - defer complex multi-value filters to post-processing
     if (filters.bedrooms && filters.bedrooms.length === 1) {
       query = query.or(`data->>bedrooms.eq."${filters.bedrooms[0]}",data->bedrooms.cs.["${filters.bedrooms[0]}"]`);
     }
     if (filters.property_type && filters.property_type.length === 1) {
       query = query.or(`data->>property_type.eq."${filters.property_type[0]}",data->property_type.cs.["${filters.property_type[0]}"]`);
     }
+    // Note: Multiple bedrooms/property_types and communities handled in post-processing for accuracy
 
     // Boolean filters
     if (filters.is_off_plan !== undefined) {

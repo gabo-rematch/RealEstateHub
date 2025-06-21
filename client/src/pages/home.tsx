@@ -29,6 +29,8 @@ export default function Home() {
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [searchTrigger, setSearchTrigger] = useState(0);
+  const [allProperties, setAllProperties] = useState<SupabaseProperty[]>([]);
+  const [hasMoreData, setHasMoreData] = useState(true);
 
   // Fetch properties based on filters
   const { data: properties = [], isLoading, error, refetch } = useQuery({
@@ -86,10 +88,10 @@ export default function Home() {
 
 
   const handleSearch = () => {
-    setCurrentPage(0); // Reset to first page when searching
-    setAllProperties([]); // Clear previous results
-    setHasSearched(true); // Mark that a search has been performed
-    setSearchTrigger(prev => prev + 1); // Trigger a new query
+    setCurrentPage(0);
+    setAllProperties([]);
+    setHasSearched(true);
+    setSearchTrigger(prev => prev + 1);
   };
 
   const handleLoadMore = () => {
